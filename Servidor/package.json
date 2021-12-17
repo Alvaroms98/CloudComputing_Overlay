@@ -1,0 +1,25 @@
+{
+  "name": "servidor",
+  "version": "1.0.0",
+  "description": "Programa servidor para gestionar el overlay del cluster, haciendo uso de etcd como base de datos clave-valor",
+  "main": "servidor.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "docker",
+    "zeromq",
+    "overlay",
+    "vxlan",
+    "veth",
+    "bridge",
+    "iproute2",
+    "etcd",
+    "nodejs"
+  ],
+  "author": "Alvaro Moure Sabate",
+  "license": "ISC",
+  "dependencies": {
+    "zeromq": "^5.2.8"
+  }
+}

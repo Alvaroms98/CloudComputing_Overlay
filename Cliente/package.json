@@ -1,0 +1,25 @@
+{
+  "name": "cliente",
+  "version": "1.0.0",
+  "description": "Programas cliente que se ejecutaran en los nodos del cluster que forma el overlay",
+  "main": "deamon.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "docker",
+    "zeromq",
+    "overlay",
+    "vxlan",
+    "veth",
+    "bridge",
+    "iproute2",
+    "etcd",
+    "nodejs"
+  ],
+  "author": "Alvaro Moure Sabate",
+  "license": "ISC",
+  "dependencies": {
+    "zeromq": "^5.2.8"
+  }
+}
