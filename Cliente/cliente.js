@@ -3,7 +3,7 @@
 
 // Dependencias
 const readline = require('readline');
-const zmq = require('zeromq')
+const zmq = require('zeromq');
 
 class Menu{
     constructor(puertoDeamon){
@@ -17,14 +17,14 @@ class Menu{
 
         // socket zmq Req para hacer peticiones al deamon
         this.socketReq = zmq.socket('req');
-        //this.socketReq.connect(`tcp://localhost:${this.puertoDeamon}`);
+        this.socketReq.connect(`tcp://localhost:${puertoDeamon}`);
     }
     
     async configurarNodo(){
         let flag = false;
         let subred;
         while(!flag){
-            subred = await this.preguntaAlUsuario('¿Segmento de red donde poner los contenedores?: (eg 192.168.111.0/24) ');
+            subred = await this.preguntaAlUsuario('¿Segmento de red donde poner los contenedores?: (p.e. 192.168.111.0/24) ');
             if (subred.split('.').length === 4 && subred.split('/').length === 2){
                 flag = true;
             } else{
@@ -57,8 +57,9 @@ class Menu{
     // En los proxys mandamos como primer elemento del array el método
     // y el resto son los argumentos
 
-    configurameElNodo(subred){
-        console.log('Estoy en configurame el nodo');
+    async configurameElNodo(subred){
+        const metodo = 'configurameElNodo';
+        await this.socketReq.send([metodo, subred])
     }
 
 }
@@ -66,7 +67,7 @@ class Menu{
 const main = async () => {
     const puertoDeamon = process.argv[2] || 5000;
 
-    const menu = new Menu();
+    const menu = new Menu(puertoDeamon);
     await menu.configurarNodo();
     console.clear();
     menu.imprimirMenu();
