@@ -57,22 +57,28 @@ class Menu{
     // En los proxys mandamos como primer elemento del array el método
     // y el resto son los argumentos
 
-    async configurameElNodo(subred){
+    configurameElNodo(subred){
         const metodo = 'configurameElNodo';
-        await this.socketReq.send([metodo, subred])
+        const argumentos = subred;
+        this.socketReq.send([metodo, argumentos])
+        this.teclado.close();
     }
 
 }
 
 const main = async () => {
-    const puertoDeamon = process.argv[2] || 5000;
+    const puertoDeamon = process.argv[2] || 5002;
 
     const menu = new Menu(puertoDeamon);
     await menu.configurarNodo();
     console.clear();
     menu.imprimirMenu();
 
-
+    // Para quitar la interfaz
+    process.on('SIGINT', () => {
+        console.log("Desconectandome del deamon y quitando interfaz");
+        menu.socketReq.close();
+    })
 }
 
 main();
