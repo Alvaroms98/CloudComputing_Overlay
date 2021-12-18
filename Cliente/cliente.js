@@ -18,6 +18,15 @@ class Menu{
         // socket zmq Req para hacer peticiones al deamon
         this.socketReq = zmq.socket('req');
         this.socketReq.connect(`tcp://localhost:${puertoDeamon}`);
+
+        // Respuestas del deamon
+        this.socketReq.on('message',(metodo, argumentos) => {
+            metodo = metodo.toString();
+            argumentos = argumentos.toString().split(',');
+
+            console.log(`Respuesta del deamon -> metodo: ${metodo}, respuesta: ${argumentos}`);
+            this[metodo](...argumentos);
+        });
     }
     
     async configurarNodo(){
@@ -35,6 +44,15 @@ class Menu{
         this.configurameElNodo(subred)
     }
 
+    async nodoConfigurado(mensaje){
+        console.log(mensaje);
+
+        this.imprimirMenu();
+        const opcion = await this.preguntaAlUsuario('Escriba una opción: ');
+        console.log(`Ha elegido la opción ${opcion}, falta configurarla jajajaja`);
+        this.teclado.close();
+    }
+
     preguntaAlUsuario(pregunta){
         return new Promise((resolve) => {
             this.teclado.question(pregunta, (respuesta) => {
@@ -48,8 +66,7 @@ class Menu{
         const item2 = '2. Destruir Contenedor';
         const item3 = '3. Información del sistema';
         const item4 = '4. Salir del menú';
-        const item5 = '\nEscriba su respuesta\n'
-        console.log(`${item1}\n${item2}\n${item3}\n${item4}\n${item5}`);
+        console.log(`${item1}\n${item2}\n${item3}\n${item4}`);
     }
 
     // Proxy del deamon
@@ -61,7 +78,6 @@ class Menu{
         const metodo = 'configurameElNodo';
         const argumentos = subred;
         this.socketReq.send([metodo, argumentos])
-        this.teclado.close();
     }
 
 }
@@ -71,8 +87,6 @@ const main = async () => {
 
     const menu = new Menu(puertoDeamon);
     await menu.configurarNodo();
-    console.clear();
-    menu.imprimirMenu();
 
     // Para quitar la interfaz
     process.on('SIGINT', () => {

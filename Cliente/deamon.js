@@ -40,6 +40,7 @@ class Deamon{
             metodo = metodo.toString();
             argumentos = argumentos.toString().split(',');
 
+            console.log(`Peticion del cliente -> metodo: ${metodo}, argumentos: ${argumentos}`);
             // Llama al método correspondiente y le pasa los argumentos
             // como un array de strings
             this[metodo](...argumentos);
@@ -124,6 +125,7 @@ class Deamon{
         try{
             console.log(`Asignando la IP ${bridgeIP} al br0`);
             //let [stdout, stderr] = await this.comandoBash(`sudo ip a add ${bridgeIP} dev br0`)
+            this.nodoConfigurado();
         } catch (err){
             console.log(err);
         }
@@ -156,6 +158,15 @@ class Deamon{
         const metodo = 'soyNodoNuevo';
         const argumentos = subred + ',' + miNombre;
         this.socketReq.send([metodo, argumentos]);
+    }
+
+
+    // Proxy del cliente
+
+    nodoConfigurado(){
+        const metodo = 'nodoConfigurado';
+        const argumentos = 'Todo listo';
+        this.socketServicio.send([metodo,argumentos]);
     }
 }
 

@@ -71,8 +71,8 @@ class Servidor{
         console.log(this.infoNodos);
 
         const IP = this.eligeIP(subred,nombreNodo,'bridge');
-        // Envio de prueba
-        this.socketRep.send(['prueba',IP]);
+        
+        this.setBridgeIP(IP);
     }
 
     eligeIP(subred, nodo, objeto){
@@ -83,19 +83,38 @@ class Servidor{
 
         switch (masc){
             case '24':
+
                 for (const i of Array(253).keys()){
                     console.log(`Probando IP: ${byte1}.${byte2}.${byte3}.${i+1}`);
-                    let pruebaIP = `${byte1}.${byte2}.${byte3}.${i}`;
+                    let pruebaIP = `${byte1}.${byte2}.${byte3}.${i+1}`;
                     // Hacer una prueba de disponibilidad
                     if (pruebaIP === '192.168.111.10'){
-                        IP = pruebaIP;
+                        IP = pruebaIP + '/' + masc;
                         break;
                     }
                 }
                 break;
+
             case '16':
+
+                for (const i of Array(253).keys()){
+                    for (const j of Array(253).keys()){
+                        console.log(`Probando IP: ${byte1}.${byte2}.${i+1}.${j+1}`);
+                        let pruebaIP = `${byte1}.${byte2}.${i+1}.${j+1}`;
+                    }
+                }
                 break;
+
             case '8':
+
+                for (const i of Array(253).keys()){
+                    for (const j of Array(253).keys()){
+                        for (const k of Array(253).keys()){
+                            console.log(`Probando IP: ${byte1}.${i+1}.${j+1}.${k+1}`);
+                            let pruebaIP = `${byte1}.${i+1}.${j+1}.${k+1}`;
+                        }
+                    }
+                }
                 break;
             default:
                 console.log(`La máscara del segmento de red es erróneo`);
@@ -104,6 +123,14 @@ class Servidor{
 
         console.log(`IP seleccionada: ${IP}`);
         return IP
+    }
+
+    // Proxy de los deamons
+
+    setBridgeIP(bridgeIP){
+        const metodo = 'setBridgeIP';
+        const argumentos = bridgeIP;
+        this.socketRep.send([metodo,argumentos]);
     }
 }
 
