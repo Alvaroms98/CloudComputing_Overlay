@@ -42,7 +42,7 @@ class Deamon{
 
             // Llama al método correspondiente y le pasa los argumentos
             // como un array de strings
-            this[metodo](argumentos);
+            this[metodo](...argumentos);
         });
 
 
@@ -140,6 +140,10 @@ class Deamon{
                 }
             });
         })
+    }
+
+    prueba(mensaje){
+        console.log(`Estoy en el metodo de prueba del deamon, he recibido: ${mensaje}`);
     }
 
 

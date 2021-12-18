@@ -36,7 +36,9 @@ class Servidor{
             metodo = metodo.toString();
             argumentos = argumentos.toString().split(',');
 
-            this[metodo](argumentos);
+            console.log(`Peticion de un deamon -> metodo: ${metodo}, argumentos: ${argumentos}`);
+
+            this[metodo](...argumentos);
         });
 
 
@@ -68,17 +70,21 @@ class Servidor{
         this.infoNodos.push(new Nodo(nombreNodo, subred));
         console.log(this.infoNodos);
 
-        this.eligeIP(subred,nombreNodo,'bridge')
+        const IP = this.eligeIP(subred,nombreNodo,'bridge');
+        // Envio de prueba
+        this.socketRep.send(['prueba',IP]);
     }
 
     eligeIP(subred, nodo, objeto){
+        console.log(`Eligiendo IP para nodo: ${nodo}`);
+
         var [IP,masc] = subred.split('/');
         var [byte1,byte2,byte3,byte4] = IP.split('.');
 
         switch (masc){
             case '24':
-                for (const i of Array(253)){
-                    console.log(`Probando IP: ${byte1}.${byte2}.${byte3}.${i}`);
+                for (const i of Array(253).keys()){
+                    console.log(`Probando IP: ${byte1}.${byte2}.${byte3}.${i+1}`);
                     let pruebaIP = `${byte1}.${byte2}.${byte3}.${i}`;
                     // Hacer una prueba de disponibilidad
                     if (pruebaIP === '192.168.111.10'){
@@ -97,7 +103,7 @@ class Servidor{
         }
 
         console.log(`IP seleccionada: ${IP}`);
-
+        return IP
     }
 }
 
