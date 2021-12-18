@@ -6,6 +6,7 @@ const zmq = require('zeromq');
 const { exec, spawn } = require('child_process');
 const { existsSync } = require('fs');
 const { mkdir } = require('fs/promises');
+const { resolve } = require('path');
 
 
 class Deamon{
@@ -44,6 +45,27 @@ class Deamon{
             this[metodo](argumentos);
         });
 
+
+        // socket cliente del servidor
+        this.socketReq = zmq.socket('req');
+        this.socketReq.connect(`tcp://${this.servidorIP}:${puertoReq}`);
+
+        // Estas son las respuestas del servidor
+        // Tienen que ser redirijidas a los métodos correspondientes para hacer el setup
+        this.socketReq.on('message', (metodo,respuesta) => {
+            metodo.toString();
+            respuesta.toString();
+            
+            console.log(`Respuesta del servidor -> metodo: ${metodo}, respuesta: ${respuesta}`);
+            this[metodo](respuesta)
+        });
+
+
+        // socket subscriptor
+        this.socketSub = zmq.socket('sub');
+        this.socketSub.connect(`tcp://${servidorIP}:${puertoSub}`);
+        this.socketSub.subscribe('deamon');
+
     }
 
 
@@ -72,27 +94,40 @@ class Deamon{
             }
 
             // Aplicar reglas de Source NAT para la subred seleccionada
-            let [stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -S | grep ${subred}`);
-            if (stdout !== `-A POSTROUTING -s ${subred} -j MASQUERADE`){
-                console.log(`Poniendo regla de NAT en iptables: -A POSTROUTING -s ${subred} -j MASQUERADE`);
-            } else{
-                console.log("Reglas de iptables ya están puestas");
+
+            // Listar todas las reglas de nat
+            let [stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -S`);
+
+            // Separar las reglas por filas y buscar el match
+            let match = stdout.split('\n').find(line => line === `-A POSTROUTING -s ${subred} -j MASQUERADE`);
+            // Si match es indefinido se pone regla, sino nada
+            if (typeof(match) === 'undefined'){
+                console.log("Poniendo regla de NAT en iptables");
+                //[stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -A POSTROUTING -s ${subred} -j MASQUERADE`)
             }
 
 
             // Levantar interfaces
             console.log("Levantando interfaces bridge and VxLAN");
             // let [stdout, stderr] = await this.comandoBash(`sudo ip link add br0 type bridge`);
-            // let [stdout, stderr] = await this.comandoBash(`sudo ip link add br0 type bridge`);
 
 
             console.log("Pidiendo una direccion IP para el bridge al servidor, esperando respuesta...");
-
-
+            this.soyNodoNuevo(this.subred, this.miNombre);
 
         } catch (err) {
             console.log(err);
         }
+    }
+
+    async setBridgeIP(bridgeIP){
+        try{
+            console.log(`Asignando la IP ${bridgeIP} al br0`);
+            //let [stdout, stderr] = await this.comandoBash(`sudo ip a add ${bridgeIP} dev br0`)
+        } catch (err){
+            console.log(err);
+        }
+
     }
 
     comandoBash(comando){
@@ -106,17 +141,29 @@ class Deamon{
             });
         })
     }
+
+
+    // Proxy del servidor
+
+    // En los proxys mandamos como primer elemento del array el método
+    // y el resto son los argumentos
+
+    soyNodoNuevo(subred,miNombre){
+        const metodo = 'soyNodoNuevo';
+        const argumentos = subred + ',' + miNombre;
+        this.socketReq.send([metodo, argumentos]);
+    }
 }
 
 
 const main = () => {
-    const miNombre = process.argv[2];
-    const miIP = process.argv[3];
-    const servidorIP = process.argv[4];
-    const LAN = process.argv[5];
+    const miNombre = process.argv[2] || 'Zeus';
+    const miIP = process.argv[3] || 'localhost';
+    const servidorIP = process.argv[4] || 'localhost';
+    const LAN = process.argv[5] || '192.168.1.0/24';
     const puertoServicio = process.argv[6] || 5002;
-    const puertoReq = process.argv[7] || 7000;
-    const puertoSub = process.argv[8] || 7001;
+    const puertoReq = process.argv[7] || 8081;
+    const puertoSub = process.argv[8] || 8080;
 
     const deamon = new Deamon(
                             miNombre,
@@ -132,7 +179,9 @@ const main = () => {
     process.on('SIGINT', () => {
         console.log("Cerrando servicio y matando deamon");
         deamon.socketServicio.close();
-    })
+        deamon.socketReq.close();
+        deamon.socketSub.close();
+    });
 
 }
 

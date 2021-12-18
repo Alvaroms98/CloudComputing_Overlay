@@ -1,12 +1,13 @@
 const zmq = require('zeromq');
+const { Request } = require('zeromq');
  
 // socket cliente del servidor
-socketReq = zmq.socket('req');
+const socketReq = zmq.socket('req')
 socketReq.connect(`tcp://localhost:8081`);
 
 
 // socket subscriptor
-socketSub = zmq.socket('sub');
+const socketSub = zmq.socket('sub');
 socketSub.connect(`tcp://localhost:8080`);
 socketSub.subscribe('deamon');
 
@@ -20,7 +21,15 @@ socketReq.on('message', (mensaje) => {
 
 socketReq.send(['prueba','Hola desde el cliente']);
 
+
 process.on('SIGINT', () =>{
 socketReq.close();
 socketSub.close();
 });
+
+// const comunicar = () => {
+//     socketReq.send(['prueba','Hola desde el cliente']);
+//     var respuesta = socketReq.receive().toString();
+//     console.log(`Respuesta del servidor: ${respuesta}`);
+// }
+// comunicar();

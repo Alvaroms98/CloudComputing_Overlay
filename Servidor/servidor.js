@@ -53,14 +53,51 @@ class Servidor{
 
     prueba(mensaje){
         console.log(`Petición del cliente: ${mensaje}`);
-        this.socketRep.send('ey que pasa');
-
-        console.log(`Publico noticia a la prueba`);
-        this.socketPub.send(['deamon','PUBLICANDO NOTICIA DE PRUEBA']);
+        
+        // Esperando dos segundo para responder
+        setTimeout(() => {
+            this.socketRep.send('ey que pasa');
+            console.log(`Publico noticia a la prueba`);
+            this.socketPub.send(['deamon','PUBLICANDO NOTICIA DE PRUEBA']);
+        },2000);
+        
     }
 
-    soyNodoNuevo(subred,miNombre){
-        
+    soyNodoNuevo(subred,nombreNodo){
+        console.log(`Añadiendo al nuevo nodo: ${nombreNodo}`);
+        this.infoNodos.push(new Nodo(nombreNodo, subred));
+        console.log(this.infoNodos);
+
+        this.eligeIP(subred,nombreNodo,'bridge')
+    }
+
+    eligeIP(subred, nodo, objeto){
+        var [IP,masc] = subred.split('/');
+        var [byte1,byte2,byte3,byte4] = IP.split('.');
+
+        switch (masc){
+            case '24':
+                for (const i of Array(253)){
+                    console.log(`Probando IP: ${byte1}.${byte2}.${byte3}.${i}`);
+                    let pruebaIP = `${byte1}.${byte2}.${byte3}.${i}`;
+                    // Hacer una prueba de disponibilidad
+                    if (pruebaIP === '192.168.111.10'){
+                        IP = pruebaIP;
+                        break;
+                    }
+                }
+                break;
+            case '16':
+                break;
+            case '8':
+                break;
+            default:
+                console.log(`La máscara del segmento de red es erróneo`);
+                break;
+        }
+
+        console.log(`IP seleccionada: ${IP}`);
+
     }
 }
 
