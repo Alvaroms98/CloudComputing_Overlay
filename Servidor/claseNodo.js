@@ -16,4 +16,10 @@ array.push(new Nodo('pepe', '192.168.1.0/24'));
 
 console.log(array);
 
-console.log(array.find(nodo => nodo.nombre === 'pepe'));
+const match = array.find(nodo => nodo.nombre === 'pepe1')
+
+if (match){
+    console.log(`el nombre pepe existe en el array`);
+} else{
+    console.log(`el nombre pepe no exister en el array`);
+}

@@ -54,8 +54,8 @@ class Deamon{
         // Estas son las respuestas del servidor
         // Tienen que ser redirijidas a los métodos correspondientes para hacer el setup
         this.socketReq.on('message', (metodo,respuesta) => {
-            metodo.toString();
-            respuesta.toString();
+            metodo = metodo.toString();
+            respuesta = respuesta.toString();
             
             console.log(`Respuesta del servidor -> metodo: ${metodo}, respuesta: ${respuesta}`);
             this[metodo](respuesta)
@@ -69,7 +69,22 @@ class Deamon{
 
     }
 
+    // Método para darme de alta en el servidor
+    darmeDeAlta(miNombre, miIP){
+        this.registrameEnElCluster(miNombre,miIP);
+    }
 
+    estasDentro(respuesta){
+        if (respuesta === 'dentro'){
+            console.log(`Dado de alta en el clúster`);
+        } else{
+            console.log(respuesta);
+            this.socketServicio.close();
+            this.socketReq.close();
+            this.socketSub.close();
+            process.exit(1);
+        }
+    }
 
     async configurameElNodo(subred){
         this.subred = subred;
@@ -114,7 +129,7 @@ class Deamon{
 
 
             console.log("Pidiendo una direccion IP para el bridge al servidor, esperando respuesta...");
-            this.soyNodoNuevo(this.subred, this.miNombre);
+            this.dameBridgeIP(this.subred, this.miNombre);
 
         } catch (err) {
             console.log(err);
@@ -154,12 +169,17 @@ class Deamon{
     // En los proxys mandamos como primer elemento del array el método
     // y el resto son los argumentos
 
-    soyNodoNuevo(subred,miNombre){
-        const metodo = 'soyNodoNuevo';
+    dameBridgeIP(subred,miNombre){
+        const metodo = 'dameBridgeIP';
         const argumentos = subred + ',' + miNombre;
         this.socketReq.send([metodo, argumentos]);
     }
 
+    registrameEnElCluster(nombreNodo, nodoIP){
+        const metodo = 'registrameEnElCluster';
+        const argumentos = nombreNodo + ',' + nodoIP;
+        this.socketReq.send([metodo,argumentos]);
+    }
 
     // Proxy del cliente
 
@@ -189,6 +209,9 @@ const main = () => {
                             puertoReq,
                             puertoSub);
                         
+    
+    deamon.darmeDeAlta(deamon.miNombre, deamon.miIP);
+
 
     // Para matar el programa
     process.on('SIGINT', () => {
