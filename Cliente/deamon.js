@@ -60,6 +60,7 @@ class Deamon{
         // Tienen que ser redirijidas a los métodos correspondientes para hacer el setup
         this.socketReq.on('message', (metodo,respuesta) => {
             metodo = metodo.toString();
+
             respuesta = respuesta.toString();
             
             console.log(`Respuesta del servidor -> metodo: ${metodo}, respuesta: ${respuesta}`);
@@ -165,7 +166,7 @@ class Deamon{
 
 
     levantaContenedor(){
-
+        return
     }
 
     prueba(mensaje){
@@ -190,14 +191,14 @@ class Deamon{
         this.socketReq.send([metodo,argumentos]);
     }
 
-    queNodosHay(vacio){
-        const metodo = 'queNodosHay';
+    infoSistema(vacio){
+        const metodo = 'infoSistema';
         const argumentos = '';
         this.socketReq.send([metodo, argumentos]);
     }
 
     hayQueLevantarOtro(){
-
+        return
     }
 
     // Proxy del cliente
@@ -208,9 +209,9 @@ class Deamon{
         this.socketServicio.send([metodo,argumentos]);
     }
 
-    hayEstosNodos(listaNodos){
-        const metodo = 'hayEstosNodos';
-        const argumentos = listaNodos.toString();
+    estaEsLaInfo(respuesta){
+        const metodo = 'estaEsLaInfo';
+        const argumentos = respuesta;
         this.socketServicio.send([metodo, argumentos]);
     }
 }

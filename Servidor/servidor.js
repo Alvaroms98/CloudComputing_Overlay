@@ -76,6 +76,21 @@ class Servidor{
         }
     }
 
+    async infoSistema(vacio){
+        // Consultar la base de datos
+        const todo = await this.etcd.getAll().all();
+        const todoObjetos = Object.values(todo);
+
+        // ver los nodos dados de alta
+        const nodosActivos = [];
+        for (const nodoActivo of this.infoNodos){
+            nodosActivos.push(nodoActivo.nombre);
+        }
+
+        this.estaEsLaInfo(todoObjetos,nodosActivos);
+
+    }
+
 
 
     async dameBridgeIP(subred,nombreNodo){
@@ -196,6 +211,12 @@ class Servidor{
         const metodo = 'estasDentro';
         const argumentos = respuesta;
         this.socketRep.send([metodo, argumentos]);
+    }
+
+    estaEsLaInfo(objetos,nodos){
+        const metodo = 'estaEsLaInfo';
+        const argumentos = `${objetos}\t${nodos}`;
+        this.socketRep.send([metodo,argumentos]);
     }
 }
 

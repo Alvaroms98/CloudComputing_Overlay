@@ -23,3 +23,7 @@ if (match){
 } else{
     console.log(`el nombre pepe no exister en el array`);
 }
+
+for (const nodo of array){
+    console.log(nodo.nombre);
+}

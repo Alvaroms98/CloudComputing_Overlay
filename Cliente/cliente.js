@@ -2,6 +2,7 @@
 // de creación y destrucción de contenedores en el cluster de la LAN
 
 // Dependencias
+const { stringify } = require('querystring');
 const readline = require('readline');
 const zmq = require('zeromq');
 
@@ -23,10 +24,18 @@ class Menu{
         this.socketReq.on('message',(metodo, argumentos) => {
             try{
                 metodo = metodo.toString();
-                argumentos = argumentos.toString().split(',');
 
-                console.log(`Respuesta del deamon -> metodo: ${metodo}, respuesta: ${argumentos}`);
-                this[metodo](...argumentos);
+                if (metodo === 'estaEsLaInfo'){
+                    // Este caso especial separamos por tabulador porque vienen JSONs
+                    argumentos = argumentos.toString().split('\t');
+                    //console.log(`Respuesta del deamon a Info -> metodo: ${metodo}, respuesta: ${argumentos}`);
+                    this[metodo](...argumentos);
+                } else{
+                    argumentos = argumentos.toString().split(',');
+
+                    console.log(`Respuesta del deamon -> metodo: ${metodo}, respuesta: ${argumentos}`);
+                    this[metodo](...argumentos);
+                }
 
             } catch(err){
                 console.log(err);
@@ -56,6 +65,14 @@ class Menu{
         const opcion = await this.preguntaAlUsuario('Escriba una opción: ');
 
         // Esto hay que cambiarlo
+
+        switch (opcion){
+            case "1":
+                this.quieroContenedor();
+                break;
+            case "2":
+                
+        }
         console.log(`Ha elegido la opción ${opcion}, falta configurarla jajajaja`);
         this.teclado.close();
     }
@@ -76,20 +93,34 @@ class Menu{
         console.log(`${item1}\n${item2}\n${item3}\n${item4}`);
     }
 
-    hayEstosNodos(listaNodos){
-        console.log(listaNodos);
+    estaEsLaInfo(objetos, nodosActivos){
+        // Truquito para el string de jsons en objetos
+        objetos = objetos.replaceAll('},{','}|{').split('|');
+        objetos.forEach((objeto,index,array) => {
+            array[index] = JSON.parse(objeto);
+        });
+
+        // Los nodos activos (puede que no tengan contenedores activos)
+        nodosActivos = nodosActivos.split(',');
+
+
+        // Sacar por pantalla la información
+        console.log("\nINFORMACION DEL SISTEMA\n");
+        console.table(objetos);
+
+        console.log("\nNODOS ACTIVOS\n");
+        console.table(nodosActivos);
     }
 
     async quieroContenedor(){
         // Pedir información de los nodos disponibles
-        this.queNodosHay();
 
         // Pedir nodo donde ponerlo
         
         // Pedir nombre del contenedor
 
         // deamon.levantaContenedor
-
+        return
     }
 
     // Proxy del deamon
@@ -103,14 +134,14 @@ class Menu{
         this.socketReq.send([metodo, argumentos]);
     }
 
-    queNodosHay(){
-        const metodo = 'queNodosHay';
+    infoSistema(){
+        const metodo = 'infoSistema';
         const argumentos = '';
         this.socketReq.send([metodo,argumentos]);
     }
 
     levantaContenedor(){
-
+        return
     }
 
 }
@@ -120,6 +151,7 @@ const main = async () => {
 
     const menu = new Menu(puertoDeamon);
     await menu.configurarNodo();
+    menu.infoSistema();
 
     // Para quitar la interfaz
     process.on('SIGINT', () => {
