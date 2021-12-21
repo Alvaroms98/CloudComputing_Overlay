@@ -36,14 +36,19 @@ class Deamon{
         });
 
         this.socketServicio.on('message', (metodo,argumentos) => {
-            // Este truco con 0MQ ya permite tener un proxy universal
-            metodo = metodo.toString();
-            argumentos = argumentos.toString().split(',');
+            try{
+                // Este truco con 0MQ ya permite tener un proxy universal
+                metodo = metodo.toString();
+                argumentos = argumentos.toString().split(',');
 
-            console.log(`Peticion del cliente -> metodo: ${metodo}, argumentos: ${argumentos}`);
-            // Llama al método correspondiente y le pasa los argumentos
-            // como un array de strings
-            this[metodo](...argumentos);
+                console.log(`Peticion del cliente -> metodo: ${metodo}, argumentos: ${argumentos}`);
+                // Llama al método correspondiente y le pasa los argumentos
+                // como un array de strings
+                this[metodo](...argumentos);
+
+            } catch (err){
+                console.log(err);
+            }
         });
 
 
@@ -144,7 +149,6 @@ class Deamon{
         } catch (err){
             console.log(err);
         }
-
     }
 
     comandoBash(comando){
@@ -157,6 +161,11 @@ class Deamon{
                 }
             });
         })
+    }
+
+
+    levantaContenedor(){
+
     }
 
     prueba(mensaje){
@@ -181,12 +190,28 @@ class Deamon{
         this.socketReq.send([metodo,argumentos]);
     }
 
+    queNodosHay(vacio){
+        const metodo = 'queNodosHay';
+        const argumentos = '';
+        this.socketReq.send([metodo, argumentos]);
+    }
+
+    hayQueLevantarOtro(){
+
+    }
+
     // Proxy del cliente
 
     nodoConfigurado(){
         const metodo = 'nodoConfigurado';
         const argumentos = 'Todo listo';
         this.socketServicio.send([metodo,argumentos]);
+    }
+
+    hayEstosNodos(listaNodos){
+        const metodo = 'hayEstosNodos';
+        const argumentos = listaNodos.toString();
+        this.socketServicio.send([metodo, argumentos]);
     }
 }
 

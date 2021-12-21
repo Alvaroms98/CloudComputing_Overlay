@@ -21,11 +21,16 @@ class Menu{
 
         // Respuestas del deamon
         this.socketReq.on('message',(metodo, argumentos) => {
-            metodo = metodo.toString();
-            argumentos = argumentos.toString().split(',');
+            try{
+                metodo = metodo.toString();
+                argumentos = argumentos.toString().split(',');
 
-            console.log(`Respuesta del deamon -> metodo: ${metodo}, respuesta: ${argumentos}`);
-            this[metodo](...argumentos);
+                console.log(`Respuesta del deamon -> metodo: ${metodo}, respuesta: ${argumentos}`);
+                this[metodo](...argumentos);
+
+            } catch(err){
+                console.log(err);
+            }
         });
     }
     
@@ -49,6 +54,8 @@ class Menu{
 
         this.imprimirMenu();
         const opcion = await this.preguntaAlUsuario('Escriba una opción: ');
+
+        // Esto hay que cambiarlo
         console.log(`Ha elegido la opción ${opcion}, falta configurarla jajajaja`);
         this.teclado.close();
     }
@@ -69,6 +76,22 @@ class Menu{
         console.log(`${item1}\n${item2}\n${item3}\n${item4}`);
     }
 
+    hayEstosNodos(listaNodos){
+        console.log(listaNodos);
+    }
+
+    async quieroContenedor(){
+        // Pedir información de los nodos disponibles
+        this.queNodosHay();
+
+        // Pedir nodo donde ponerlo
+        
+        // Pedir nombre del contenedor
+
+        // deamon.levantaContenedor
+
+    }
+
     // Proxy del deamon
 
     // En los proxys mandamos como primer elemento del array el método
@@ -77,7 +100,17 @@ class Menu{
     configurameElNodo(subred){
         const metodo = 'configurameElNodo';
         const argumentos = subred;
-        this.socketReq.send([metodo, argumentos])
+        this.socketReq.send([metodo, argumentos]);
+    }
+
+    queNodosHay(){
+        const metodo = 'queNodosHay';
+        const argumentos = '';
+        this.socketReq.send([metodo,argumentos]);
+    }
+
+    levantaContenedor(){
+
     }
 
 }
@@ -90,7 +123,7 @@ const main = async () => {
 
     // Para quitar la interfaz
     process.on('SIGINT', () => {
-        console.log("Desconectandome del deamon y quitando interfaz");
+        console.log("\nDesconectandome del deamon y quitando interfaz");
         menu.socketReq.close();
     })
 }
