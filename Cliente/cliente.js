@@ -144,14 +144,14 @@ class Menu{
 
         // Comprobar que es correcto
         verificar = objetos.find(objeto => objeto.nombre === contenedor);
-        
+
         if (typeof(verificar) !== 'undefined'){
             console.log(`El nombre de ese contenedor ya existe`);
             return
         }
 
         console.log(`Enviando petición de nuevo contenedor`);
-        this.levantaContenedor();
+        this.levantaContenedor(nodo, contenedor);
 
         console.log(`Esperando respuesta del deamon...`);
         let respuesta = await this.respuestaDeamon();
@@ -179,9 +179,9 @@ class Menu{
     }
 
 
-    levantaContenedor(){
+    levantaContenedor(nodo, contenedor){
         const metodo = 'levantaContenedor';
-        const argumentos = '';
+        const argumentos = nodo + ',' + contenedor;
         this.socketReq.send([metodo, argumentos]);
     }
 

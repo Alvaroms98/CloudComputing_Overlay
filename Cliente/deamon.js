@@ -9,6 +9,16 @@ const { mkdir } = require('fs/promises');
 const { resolve } = require('path');
 
 
+class Contenedor{
+    constructor(nombre, IP, pid, netns, veth){
+        this.nombre = nombre;
+        this.IP = IP;
+        this.pid = pid;
+        this.netns = netns;
+        this.veth = veth;
+    }
+}
+
 class Deamon{
     constructor(miNombre, miIP, servidorIP, LAN, puertoServicio, puertoReq, puertoSub){
         // Variables que conserva el Deamon
@@ -22,6 +32,7 @@ class Deamon{
 
         this.misContenedores = [];
         this.subred = '';
+        this.bridgeIP = '';
 
         //sockets para servir al cliente y para conectarse al servidor
 
@@ -57,6 +68,20 @@ class Deamon{
         this.socketSub.connect(`tcp://${servidorIP}:${puertoSub}`);
         this.socketSub.subscribe('deamon');
 
+        this.socketSub.on('message', (topic, metodo, argumentos) => {
+            try{
+                metodo = metodo.toString();
+                argumentos = argumentos.toString().split(',');
+
+                console.log(`Tarea publicada por el servidor -> metodo: ${metodo}, argumentos: ${argumentos}`);
+
+                // Pasamos la tarea al método correspondiente
+                this[metodo](...argumentos);
+            } catch (err){
+                console.log(err);
+            }
+        });
+
     }
 
     // Promesa que devuelve las respuestas del servidor
@@ -65,7 +90,19 @@ class Deamon{
             this.socketReq.on('message', (respuesta) => {
                 resolve(respuesta.toString());
             });
-        })
+        });
+    }
+
+    comandoBash(comando){
+        return new Promise((resolve,reject) => {
+            exec(comando, (err,stdout,stderr) => {
+                if (err){
+                    reject(err);
+                } else{
+                    resolve([stdout,stderr]);
+                }
+            });
+        });
     }
 
     // Método para darme de alta en el servidor
@@ -141,12 +178,12 @@ class Deamon{
             console.log("Pidiendo una direccion IP para el bridge al servidor, esperando respuesta...");
             this.dameBridgeIP(this.subred, this.miNombre);
 
-            let bridgeIP = await this.respuestaServidor();
-            console.log(`IP devuelta del servidor: ${bridgeIP}`);
+            this.bridgeIP = await this.respuestaServidor();
+            console.log(`IP devuelta del servidor: ${this.bridgeIP}`);
 
             // Poner la IP al bridge
-            console.log(`Asignando la IP ${bridgeIP} al br0`);
-            //let [stdout, stderr] = await this.comandoBash(`sudo ip a add ${bridgeIP} dev br0`)
+            console.log(`Asignando la IP ${this.bridgeIP} al br0`);
+            //let [stdout, stderr] = await this.comandoBash(`sudo ip a add ${this.bridgeIP} dev br0`)
 
             // Respondemos al cliente que todo bien
             this.socketServicio.send('Nodo configurado, listo para el servicio!!')
@@ -156,22 +193,65 @@ class Deamon{
         }
     }
 
+    // Levantar contenedor cuando el servidor mande la tarea
+    async teTocaArremangarteYLevantar(nodo, nombreCont, IP){
+        // Comprobamos si me ha tocado a mi
+        if (nodo !== this.miNombre){
+            console.log(`La tarea no es para mi`);
+            return
+        }
+        
+        try{
+            // Lanzamos el contenedor sin red
+            console.log(`Levantando contenedor "${nombreCont}", sin configuración de red`);
+            let [stdout, stderr] = await this.comandoBash(`sudo docker run -itd --rm --network=none --name=${nombreCont} ubuntu_overlay`);
 
-    comandoBash(comando){
-        return new Promise((resolve,reject) => {
-            exec(comando, (err,stdout,stderr) => {
-                if (err){
-                    reject(err);
-                } else{
-                    resolve([stdout,stderr]);
-                }
-            });
-        })
+            // Cazamos el PID del contenedor
+            console.log(`Recogemos el PID del contenedor ${nombreCont}`);
+            //let [pid, stderr] = await this.comandoBash(`sudo docker inspect --format '{{.State.Pid}}' ${nombreCont}`);
+
+            // Creamos link simbólico del netns del contenedor a /run/netns/
+            console.log("Creamos link simbólico del netns del contenedor a /run/netns/");
+            //[stdout, stderr] = await this.comandoBash(`sudo ln -s /proc/${pid}/ns/net /run/netns/netns_${nombreCont}`);
+
+            // Creamos interfaces veth
+            console.log(`Creando las interfaces VETH y conectando con br0`);
+            //[stdout, stderr] = await this.comandoBash(`sudo ip link add eth0 netns netns_${nombreCont} type veth peer name veth_${nombreCont}`);
+
+            // Asignamos direccion IP
+            console.log(`Asignando la direccion IP: ${IP}, a la interfaz eth0 del netns_${nombreCont}`);
+            //[stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} a add ${IP} dev eth0`);
+
+            // Levantamos las interfaces
+            //[stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} link set eth0 up`);
+            //[stdout, stderr] = await this.comandoBash(`sudo ip link set veth_${nombreCont} up`);
+
+            // Anclamos la veth del netns del host a br0
+            //[stdout, stderr] = await this.comandoBash(`sudo ip link set veth_${nombreCont} master br0`);
+
+            // Reglas de enrutamiento
+            //[stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} r add default via ${this.bridgeIP.split('/')[0]}`);
+
+            // Si todo ha ido bien hasta aqui nos guardamos la info del contenedor
+            console.log(`Levantamiento finalizado con éxito, guardamos la info del contenedor`);
+            this.misContenedores.push(new Contenedor(nombreCont, IP, pid, `netns_${nombreCont}`, `veth_${nombreCont}`));
+            console.log(this.misContenedores);
+
+        } catch(err){
+            console.log(err);
+        }
+
     }
 
+    levantaContenedor(nodo, contenedor){
+        console.log(`Hay que levantar en el nodo: ${nodo}, el contenedor: ${contenedor}`);
 
-    levantaContenedor(){
-        this.socketServicio.send('Petición enviada al servidor')
+        // Pasando la petición al servidor
+        this.hayQueLevantarOtro(nodo, contenedor, this.subred);
+
+
+        this.socketServicio.send('Petición enviada al servidor');
+
     }
 
     prueba(mensaje){
@@ -202,8 +282,10 @@ class Deamon{
         this.socketReq.send([metodo, argumentos]);
     }
 
-    hayQueLevantarOtro(){
-        return
+    hayQueLevantarOtro(nodo, nombreCont, subred){
+        const metodo = 'hayQueLevantarOtro';
+        const argumentos = nodo + ',' + nombreCont + ',' + subred;
+        this.socketReq.send([metodo, argumentos]);
     }
 }
 

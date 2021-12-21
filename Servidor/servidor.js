@@ -94,6 +94,13 @@ class Servidor{
         this.socketRep.send(`${todoObjetos}\t${nodosActivos}`);
     }
 
+    async hayQueLevantarOtro(nodo, nombreCont, subred){
+        const IP = await this.eligeIP(subred, nodo, nombreCont);
+
+        // una vez elegida la IP, publicamos la tarea
+        this.teTocaArremangarteYLevantar(nodo, nombreCont, IP);
+    }
+
 
 
     async dameBridgeIP(subred,nombreNodo){
@@ -203,14 +210,13 @@ class Servidor{
         
     }
 
-    // Proxy de los deamons
-
-
-    estaEsLaInfo(objetos,nodos){
-        const metodo = 'estaEsLaInfo';
-        const argumentos = `${objetos}\t${nodos}`;
-        this.socketRep.send([metodo,argumentos]);
+    // Proxy Deamon, para publicaciones
+    teTocaArremangarteYLevantar(nodo, nombreCont, IP){
+        const metodo = 'teTocaArremangarteYLevantar';
+        const argumentos = nodo + ',' + nombreCont + ',' + IP;
+        this.socketPub.send(['deamon', metodo, argumentos]);
     }
+
 }
 
 
