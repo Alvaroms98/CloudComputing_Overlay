@@ -20,27 +20,6 @@ class Menu{
         this.socketReq = zmq.socket('req');
         this.socketReq.connect(`tcp://localhost:${puertoDeamon}`);
 
-        // // Respuestas del deamon
-        // this.socketReq.on('message',(metodo, argumentos) => {
-        //     try{
-        //         metodo = metodo.toString();
-
-        //         if (metodo === 'estaEsLaInfo'){
-        //             // Este caso especial separamos por tabulador porque vienen JSONs
-        //             argumentos = argumentos.toString().split('\t');
-        //             //console.log(`Respuesta del deamon a Info -> metodo: ${metodo}, respuesta: ${argumentos}`);
-        //             this[metodo](...argumentos);
-        //         } else{
-        //             argumentos = argumentos.toString().split(',');
-
-        //             console.log(`Respuesta del deamon -> metodo: ${metodo}, respuesta: ${argumentos}`);
-        //             this[metodo](...argumentos);
-        //         }
-
-        //     } catch(err){
-        //         console.log(err);
-        //     }
-        // });
     }
 
     // Promesa que devuelve las respuestas del deamon
@@ -50,6 +29,42 @@ class Menu{
                 resolve(respuesta.toString());
             });
         })
+    }
+
+    // Devuelve una promesa que se cumple cuando el usuario pone una opción
+    preguntaAlUsuario(pregunta){
+        return new Promise((resolve) => {
+            this.teclado.question(pregunta, (respuesta) => {
+                resolve(respuesta)
+            })
+        });
+    }
+
+    async acciones(){
+        // Imprimimos el menú de acciones
+        this.imprimirMenu();
+
+        // preguntamos al usuario que quiere hacer
+        const opcion = await this.preguntaAlUsuario('Elige una opción: ');
+
+        switch (opcion){
+            case "1":
+                await this.quieroContenedor();
+                break;
+            case "2":
+                console.log("Ha elegido eliminar un contenedor");
+                break;
+            case "3":
+                await this.pedirInformacionSistema();
+                break;
+            case "4":
+                console.log("Ha elegido cerrar todo... JAJJA");
+                break;
+            default:
+                console.log("La opción no corresponde con ninguna disponible");
+                break;
+        }
+        
     }
     
     async configurarNodo(){
@@ -70,39 +85,15 @@ class Menu{
         console.log(`Respuesta del deamon: ${respuesta}`);
     }
 
-    // async nodoConfigurado(mensaje){
-    //     console.log(mensaje);
 
-    //     this.imprimirMenu();
-    //     const opcion = await this.preguntaAlUsuario('Escriba una opción: ');
 
-    //     // Esto hay que cambiarlo
-
-    //     switch (opcion){
-    //         case "1":
-    //             this.quieroContenedor();
-    //             break;
-    //         case "2":
-
-    //     }
-    //     console.log(`Ha elegido la opción ${opcion}, falta configurarla jajajaja`);
-    //     this.teclado.close();
-    // }
-
-    preguntaAlUsuario(pregunta){
-        return new Promise((resolve) => {
-            this.teclado.question(pregunta, (respuesta) => {
-                resolve(respuesta)
-            })
-        });
-    }
 
     imprimirMenu(){
         const item1 = '1. Levantar Contenedor';
         const item2 = '2. Destruir Contenedor';
         const item3 = '3. Información del sistema';
         const item4 = '4. Salir del menú';
-        console.log(`${item1}\n${item2}\n${item3}\n${item4}`);
+        console.log(`\n\n\tMENU\n${item1}\n${item2}\n${item3}\n${item4}`);
     }
 
     async pedirInformacionSistema(){
@@ -129,35 +120,43 @@ class Menu{
 
         console.log("\nNODOS ACTIVOS\n");
         console.table(nodosActivos);
+        
+        return [objetos, nodosActivos]
     }
-
-    // estaEsLaInfo(objetos, nodosActivos){
-    //     // Truquito para el string de jsons en objetos
-    //     objetos = objetos.replaceAll('},{','}|{').split('|');
-    //     objetos.forEach((objeto,index,array) => {
-    //         array[index] = JSON.parse(objeto);
-    //     });
-
-    //     // Los nodos activos (puede que no tengan contenedores activos)
-    //     nodosActivos = nodosActivos.split(',');
-
-
-    //     // Sacar por pantalla la información
-    //     console.log("\nINFORMACION DEL SISTEMA\n");
-    //     console.table(objetos);
-
-    //     console.log("\nNODOS ACTIVOS\n");
-    //     console.table(nodosActivos);
-    // }
 
     async quieroContenedor(){
         // Pedir información de los nodos disponibles
+        let [objetos, nodosActivos] = await this.pedirInformacionSistema();
 
         // Pedir nodo donde ponerlo
+        let nodo = await this.preguntaAlUsuario('¿En que Nodo? ');
         
-        // Pedir nombre del contenedor
+        // Comprobar que es correcto
+        let verificar = nodosActivos.find(Activo => Activo === nodo);
+        if (typeof(verificar) === 'undefined'){
+            console.log(`Ese nodo no existe`);
+            return
+        }
 
-        // deamon.levantaContenedor
+
+        // Pedir nombre del contenedor
+        let contenedor = await this.preguntaAlUsuario('¿Nombre del contenedor? ');
+
+        // Comprobar que es correcto
+        verificar = objetos.find(objeto => objeto.nombre === contenedor);
+        
+        if (typeof(verificar) !== 'undefined'){
+            console.log(`El nombre de ese contenedor ya existe`);
+            return
+        }
+
+        console.log(`Enviando petición de nuevo contenedor`);
+        this.levantaContenedor();
+
+        console.log(`Esperando respuesta del deamon...`);
+        let respuesta = await this.respuestaDeamon();
+        console.log(`Respuesta del deamon: ${respuesta}`);
+
         return
     }
 
@@ -181,7 +180,9 @@ class Menu{
 
 
     levantaContenedor(){
-        return
+        const metodo = 'levantaContenedor';
+        const argumentos = '';
+        this.socketReq.send([metodo, argumentos]);
     }
 
 }
@@ -191,13 +192,19 @@ const main = async () => {
 
     const menu = new Menu(puertoDeamon);
     await menu.configurarNodo();
-    await menu.pedirInformacionSistema();
+
+    //await menu.pedirInformacionSistema();
 
     // Para quitar la interfaz
     process.on('SIGINT', () => {
         console.log("\nDesconectandome del deamon y quitando interfaz");
         menu.socketReq.close();
-    })
+        process.exit(0);
+    });
+
+    while (true){
+        await menu.acciones();
+    }
 }
 
 main();

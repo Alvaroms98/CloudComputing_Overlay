@@ -136,7 +136,7 @@ class Servidor{
                 break;
 
             case '16':
-
+                loop1:
                 for (const i of Array(253).keys()){
                     for (const j of Array(253).keys()){
                         console.log(`Probando IP: ${byte1}.${byte2}.${i+1}.${j+1}`);
@@ -149,7 +149,7 @@ class Servidor{
                             valor = new Valor(objeto, IP, nodo);
                             // Registrar IP y objeto en la base de datos
                             await this.etcd.put(pruebaIP).value(JSON.stringify(valor));
-                            break;
+                            break loop1;
                         }
                     }
                 }
@@ -159,7 +159,7 @@ class Servidor{
                 break;
 
             case '8':
-
+                loop1:
                 for (const i of Array(253).keys()){
                     for (const j of Array(253).keys()){
                         for (const k of Array(253).keys()){
@@ -172,7 +172,7 @@ class Servidor{
                                 valor = new Valor(objeto, IP, nodo);
                                 // Registrar IP y objeto en la base de datos
                                 await this.etcd.put(pruebaIP).value(JSON.stringify(valor));
-                                break;
+                                break loop1;
                             }
                         }
                     }

@@ -51,17 +51,6 @@ class Deamon{
         this.socketReq = zmq.socket('req');
         this.socketReq.connect(`tcp://${this.servidorIP}:${puertoReq}`);
 
-        // Estas son las respuestas del servidor
-        // Tienen que ser redirijidas a los métodos correspondientes para hacer el setup
-        // this.socketReq.on('message', (metodo,respuesta) => {
-        //     metodo = metodo.toString();
-
-        //     respuesta = respuesta.toString();
-            
-        //     console.log(`Respuesta del servidor -> metodo: ${metodo}, respuesta: ${respuesta}`);
-        //     this[metodo](respuesta)
-        // });
-
 
         // socket subscriptor
         this.socketSub = zmq.socket('sub');
@@ -182,7 +171,7 @@ class Deamon{
 
 
     levantaContenedor(){
-        return
+        this.socketServicio.send('Petición enviada al servidor')
     }
 
     prueba(mensaje){
