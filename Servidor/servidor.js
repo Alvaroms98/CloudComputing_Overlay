@@ -67,12 +67,15 @@ class Servidor{
     registrameEnElCluster(nombreNodo, nodoIP){
         const match = this.infoNodos.find(nodo => nodo.nombre === nombreNodo);
         if (match){
-            this.estasDentro('Ya existe un nodo con ese nombre');
+            // Responder al deamon
+            this.socketRep.send('Ya existe un nodo con ese nombre');
         } else{
             console.log(`Añadiendo al nuevo nodo: ${nombreNodo}`);
             this.infoNodos.push(new Nodo(nombreNodo, nodoIP));
-            this.estasDentro('dentro');
             console.log(this.infoNodos);
+
+            // Responder al deamon
+            this.socketRep.send('dentro');
         }
     }
 
@@ -87,16 +90,17 @@ class Servidor{
             nodosActivos.push(nodoActivo.nombre);
         }
 
-        this.estaEsLaInfo(todoObjetos,nodosActivos);
-
+        // Responder al deamon con la información
+        this.socketRep.send(`${todoObjetos}\t${nodosActivos}`);
     }
 
 
 
     async dameBridgeIP(subred,nombreNodo){
-        const IP = await this.eligeIP(subred,nombreNodo,'bridge');
+        const IP = await this.eligeIP(subred,nombreNodo,'br0');
         
-        this.setBridgeIP(IP);
+        // Responder al deamon
+        this.socketRep.send(IP);
     }
 
     async eligeIP(subred, nodo, objeto){
@@ -201,17 +205,6 @@ class Servidor{
 
     // Proxy de los deamons
 
-    setBridgeIP(bridgeIP){
-        const metodo = 'setBridgeIP';
-        const argumentos = bridgeIP;
-        this.socketRep.send([metodo,argumentos]);
-    }
-
-    estasDentro(respuesta){
-        const metodo = 'estasDentro';
-        const argumentos = respuesta;
-        this.socketRep.send([metodo, argumentos]);
-    }
 
     estaEsLaInfo(objetos,nodos){
         const metodo = 'estaEsLaInfo';

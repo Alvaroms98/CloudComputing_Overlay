@@ -27,13 +27,8 @@ class Deamon{
 
         //socket servicio
         this.socketServicio = zmq.socket('rep');
-        this.socketServicio.bind(`tcp://*:${puertoServicio}`, (err) => {
-            if (err){
-                console.log(err);
-            } else{
-                console.log(`Sirviendo al cliente en el puerto ${puertoServicio}`);
-            }
-        });
+        this.socketServicio.bindSync(`tcp://*:${puertoServicio}`);
+        console.log(`Sirviendo al cliente en el puerto ${puertoServicio}`);
 
         this.socketServicio.on('message', (metodo,argumentos) => {
             try{
@@ -58,14 +53,14 @@ class Deamon{
 
         // Estas son las respuestas del servidor
         // Tienen que ser redirijidas a los métodos correspondientes para hacer el setup
-        this.socketReq.on('message', (metodo,respuesta) => {
-            metodo = metodo.toString();
+        // this.socketReq.on('message', (metodo,respuesta) => {
+        //     metodo = metodo.toString();
 
-            respuesta = respuesta.toString();
+        //     respuesta = respuesta.toString();
             
-            console.log(`Respuesta del servidor -> metodo: ${metodo}, respuesta: ${respuesta}`);
-            this[metodo](respuesta)
-        });
+        //     console.log(`Respuesta del servidor -> metodo: ${metodo}, respuesta: ${respuesta}`);
+        //     this[metodo](respuesta)
+        // });
 
 
         // socket subscriptor
@@ -75,23 +70,43 @@ class Deamon{
 
     }
 
-    // Método para darme de alta en el servidor
-    darmeDeAlta(miNombre, miIP){
-        this.registrameEnElCluster(miNombre,miIP);
+    // Promesa que devuelve las respuestas del servidor
+    respuestaServidor(){
+        return new Promise((resolve) => {
+            this.socketReq.on('message', (respuesta) => {
+                resolve(respuesta.toString());
+            });
+        })
     }
 
-    estasDentro(respuesta){
-        if (respuesta === 'dentro'){
-            console.log(`Dado de alta en el clúster`);
-        } else{
-            console.log(respuesta);
-            this.socketServicio.close();
+    // Método para darme de alta en el servidor
+    async darmeDeAlta(miNombre, miIP){
+
+        console.log("Dandome de alta en el clúster, esperando respuesta...");
+        this.registrameEnElCluster(miNombre,miIP);
+
+        let respuesta = await this.respuestaServidor();
+        console.log(`Respuesta del servidor: ${respuesta}`);
+
+        if (respuesta !== 'dentro'){
             this.socketReq.close();
+            this.socketServicio.close();
             this.socketSub.close();
             process.exit(1);
         }
+
     }
 
+    async dameInfoSistema(){
+        console.log(`Pidiendo información del clúster al servidor`);
+        this.infoSistema();
+        let respuesta = await this.respuestaServidor();
+
+        // Respondemos al cliente con toda la info
+        this.socketServicio.send(respuesta);
+    }
+
+    // Configurar el nodo
     async configurameElNodo(subred){
         this.subred = subred;
         console.log(`subred recibida: ${this.subred}`);
@@ -137,20 +152,21 @@ class Deamon{
             console.log("Pidiendo una direccion IP para el bridge al servidor, esperando respuesta...");
             this.dameBridgeIP(this.subred, this.miNombre);
 
+            let bridgeIP = await this.respuestaServidor();
+            console.log(`IP devuelta del servidor: ${bridgeIP}`);
+
+            // Poner la IP al bridge
+            console.log(`Asignando la IP ${bridgeIP} al br0`);
+            //let [stdout, stderr] = await this.comandoBash(`sudo ip a add ${bridgeIP} dev br0`)
+
+            // Respondemos al cliente que todo bien
+            this.socketServicio.send('Nodo configurado, listo para el servicio!!')
+
         } catch (err) {
             console.log(err);
         }
     }
 
-    async setBridgeIP(bridgeIP){
-        try{
-            console.log(`Asignando la IP ${bridgeIP} al br0`);
-            //let [stdout, stderr] = await this.comandoBash(`sudo ip a add ${bridgeIP} dev br0`)
-            this.nodoConfigurado();
-        } catch (err){
-            console.log(err);
-        }
-    }
 
     comandoBash(comando){
         return new Promise((resolve,reject) => {
@@ -199,20 +215,6 @@ class Deamon{
 
     hayQueLevantarOtro(){
         return
-    }
-
-    // Proxy del cliente
-
-    nodoConfigurado(){
-        const metodo = 'nodoConfigurado';
-        const argumentos = 'Todo listo';
-        this.socketServicio.send([metodo,argumentos]);
-    }
-
-    estaEsLaInfo(respuesta){
-        const metodo = 'estaEsLaInfo';
-        const argumentos = respuesta;
-        this.socketServicio.send([metodo, argumentos]);
     }
 }
 

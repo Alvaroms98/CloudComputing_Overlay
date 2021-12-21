@@ -20,27 +20,36 @@ class Menu{
         this.socketReq = zmq.socket('req');
         this.socketReq.connect(`tcp://localhost:${puertoDeamon}`);
 
-        // Respuestas del deamon
-        this.socketReq.on('message',(metodo, argumentos) => {
-            try{
-                metodo = metodo.toString();
+        // // Respuestas del deamon
+        // this.socketReq.on('message',(metodo, argumentos) => {
+        //     try{
+        //         metodo = metodo.toString();
 
-                if (metodo === 'estaEsLaInfo'){
-                    // Este caso especial separamos por tabulador porque vienen JSONs
-                    argumentos = argumentos.toString().split('\t');
-                    //console.log(`Respuesta del deamon a Info -> metodo: ${metodo}, respuesta: ${argumentos}`);
-                    this[metodo](...argumentos);
-                } else{
-                    argumentos = argumentos.toString().split(',');
+        //         if (metodo === 'estaEsLaInfo'){
+        //             // Este caso especial separamos por tabulador porque vienen JSONs
+        //             argumentos = argumentos.toString().split('\t');
+        //             //console.log(`Respuesta del deamon a Info -> metodo: ${metodo}, respuesta: ${argumentos}`);
+        //             this[metodo](...argumentos);
+        //         } else{
+        //             argumentos = argumentos.toString().split(',');
 
-                    console.log(`Respuesta del deamon -> metodo: ${metodo}, respuesta: ${argumentos}`);
-                    this[metodo](...argumentos);
-                }
+        //             console.log(`Respuesta del deamon -> metodo: ${metodo}, respuesta: ${argumentos}`);
+        //             this[metodo](...argumentos);
+        //         }
 
-            } catch(err){
-                console.log(err);
-            }
-        });
+        //     } catch(err){
+        //         console.log(err);
+        //     }
+        // });
+    }
+
+    // Promesa que devuelve las respuestas del deamon
+    respuestaDeamon(){
+        return new Promise((resolve) => {
+            this.socketReq.on('message', (respuesta) => {
+                resolve(respuesta.toString());
+            });
+        })
     }
     
     async configurarNodo(){
@@ -56,26 +65,29 @@ class Menu{
         }
 
         this.configurameElNodo(subred)
+        console.log(`Esperando a que el deamon configure el nodo`);
+        let respuesta = await this.respuestaDeamon();
+        console.log(`Respuesta del deamon: ${respuesta}`);
     }
 
-    async nodoConfigurado(mensaje){
-        console.log(mensaje);
+    // async nodoConfigurado(mensaje){
+    //     console.log(mensaje);
 
-        this.imprimirMenu();
-        const opcion = await this.preguntaAlUsuario('Escriba una opción: ');
+    //     this.imprimirMenu();
+    //     const opcion = await this.preguntaAlUsuario('Escriba una opción: ');
 
-        // Esto hay que cambiarlo
+    //     // Esto hay que cambiarlo
 
-        switch (opcion){
-            case "1":
-                this.quieroContenedor();
-                break;
-            case "2":
-                
-        }
-        console.log(`Ha elegido la opción ${opcion}, falta configurarla jajajaja`);
-        this.teclado.close();
-    }
+    //     switch (opcion){
+    //         case "1":
+    //             this.quieroContenedor();
+    //             break;
+    //         case "2":
+
+    //     }
+    //     console.log(`Ha elegido la opción ${opcion}, falta configurarla jajajaja`);
+    //     this.teclado.close();
+    // }
 
     preguntaAlUsuario(pregunta){
         return new Promise((resolve) => {
@@ -93,24 +105,50 @@ class Menu{
         console.log(`${item1}\n${item2}\n${item3}\n${item4}`);
     }
 
-    estaEsLaInfo(objetos, nodosActivos){
+    async pedirInformacionSistema(){
+        console.log("Pidiendo información del clúster al deamon");
+        this.dameInfoSistema();
+
+        console.log("Esperando respuesta...");
+
+        let respuesta = await this.respuestaDeamon();
+        let [objetos, nodosActivos] = respuesta.split('\t');
+
         // Truquito para el string de jsons en objetos
         objetos = objetos.replaceAll('},{','}|{').split('|');
         objetos.forEach((objeto,index,array) => {
             array[index] = JSON.parse(objeto);
         });
 
-        // Los nodos activos (puede que no tengan contenedores activos)
+        // Los nodos activos aparte, pues puede que no tengan contenedores
         nodosActivos = nodosActivos.split(',');
 
-
-        // Sacar por pantalla la información
+        // Sacar información en forma de tabla
         console.log("\nINFORMACION DEL SISTEMA\n");
         console.table(objetos);
 
         console.log("\nNODOS ACTIVOS\n");
         console.table(nodosActivos);
     }
+
+    // estaEsLaInfo(objetos, nodosActivos){
+    //     // Truquito para el string de jsons en objetos
+    //     objetos = objetos.replaceAll('},{','}|{').split('|');
+    //     objetos.forEach((objeto,index,array) => {
+    //         array[index] = JSON.parse(objeto);
+    //     });
+
+    //     // Los nodos activos (puede que no tengan contenedores activos)
+    //     nodosActivos = nodosActivos.split(',');
+
+
+    //     // Sacar por pantalla la información
+    //     console.log("\nINFORMACION DEL SISTEMA\n");
+    //     console.table(objetos);
+
+    //     console.log("\nNODOS ACTIVOS\n");
+    //     console.table(nodosActivos);
+    // }
 
     async quieroContenedor(){
         // Pedir información de los nodos disponibles
@@ -134,11 +172,13 @@ class Menu{
         this.socketReq.send([metodo, argumentos]);
     }
 
-    infoSistema(){
-        const metodo = 'infoSistema';
+
+    dameInfoSistema(){
+        const metodo = 'dameInfoSistema';
         const argumentos = '';
         this.socketReq.send([metodo,argumentos]);
     }
+
 
     levantaContenedor(){
         return
@@ -151,7 +191,7 @@ const main = async () => {
 
     const menu = new Menu(puertoDeamon);
     await menu.configurarNodo();
-    menu.infoSistema();
+    await menu.pedirInformacionSistema();
 
     // Para quitar la interfaz
     process.on('SIGINT', () => {
