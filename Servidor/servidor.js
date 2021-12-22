@@ -99,6 +99,17 @@ class Servidor{
 
         // una vez elegida la IP, publicamos la tarea
         this.teTocaArremangarteYLevantar(nodo, nombreCont, IP);
+
+        // Respondemos al deamon que ha notificado de la tarea que todo ok
+        this.socketRep.send('La tarea ya está enviada al clúster');
+    }
+
+    async hayQueTumbarContenedor(nombreCont, IP){
+        // Hay que buscar la IP en etcd y si hay match enviar la tarea
+        console.log(nombreCont, IP);
+
+        // Responder al deamon que ha notificado la tarea que todo ok
+        this.socketRep.send('La tarea ya está enviada al clúster');
     }
 
 

@@ -234,7 +234,7 @@ class Deamon{
 
             // Si todo ha ido bien hasta aqui nos guardamos la info del contenedor
             console.log(`Levantamiento finalizado con éxito, guardamos la info del contenedor`);
-            this.misContenedores.push(new Contenedor(nombreCont, IP, pid, `netns_${nombreCont}`, `veth_${nombreCont}`));
+            this.misContenedores.push(new Contenedor(nombreCont, IP, "pid", `netns_${nombreCont}`, `veth_${nombreCont}`));
             console.log(this.misContenedores);
 
         } catch(err){
@@ -243,15 +243,25 @@ class Deamon{
 
     }
 
-    levantaContenedor(nodo, contenedor){
+    async levantaContenedor(nodo, contenedor){
         console.log(`Hay que levantar en el nodo: ${nodo}, el contenedor: ${contenedor}`);
 
         // Pasando la petición al servidor
         this.hayQueLevantarOtro(nodo, contenedor, this.subred);
+        let respuesta = await this.respuestaServidor();
+        console.log(`Respuesta del servidor: ${respuesta}`);
 
 
-        this.socketServicio.send('Petición enviada al servidor');
+        this.socketServicio.send('Petición recibida por el servidor');
+    }
 
+    async eliminaContenedor(nombreCont, IP){
+        // Pasando la petición al servidor
+        this.hayQueTumbarContenedor(nombreCont, IP);
+        let respuesta = await this.respuestaServidor();
+        console.log(`Respuesta del servidor: ${respuesta}`);
+
+        this.socketServicio.send('Petición recibida por el servidor');
     }
 
     prueba(mensaje){
@@ -285,6 +295,12 @@ class Deamon{
     hayQueLevantarOtro(nodo, nombreCont, subred){
         const metodo = 'hayQueLevantarOtro';
         const argumentos = nodo + ',' + nombreCont + ',' + subred;
+        this.socketReq.send([metodo, argumentos]);
+    }
+
+    hayQueTumbarContenedor(nombreCont, IP){
+        const metodo = 'hayQueTumbarContenedor';
+        const argumentos = nombreCont + ',' + IP;
         this.socketReq.send([metodo, argumentos]);
     }
 }

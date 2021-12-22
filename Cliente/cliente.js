@@ -33,10 +33,17 @@ class Menu{
 
     // Devuelve una promesa que se cumple cuando el usuario pone una opción
     preguntaAlUsuario(pregunta){
-        return new Promise((resolve) => {
-            this.teclado.question(pregunta, (respuesta) => {
-                resolve(respuesta)
-            })
+        return new Promise((resolve,reject) => {
+            try{
+                this.teclado.resume();
+                this.teclado.question(pregunta, (respuesta) => {
+                    this.teclado.pause();
+                    resolve(respuesta)
+                });
+            } catch(err){
+                console.log(err);
+                reject(err);
+            }
         });
     }
 
@@ -52,10 +59,10 @@ class Menu{
                 await this.quieroContenedor();
                 break;
             case "2":
-                console.log("Ha elegido eliminar un contenedor");
+                await this.quieroEliminarContenedor();
                 break;
             case "3":
-                await this.pedirInformacionSistema();
+                await this.mostrarInfoSistema();
                 break;
             case "4":
                 console.log("Ha elegido cerrar todo... JAJJA");
@@ -113,6 +120,12 @@ class Menu{
 
         // Los nodos activos aparte, pues puede que no tengan contenedores
         nodosActivos = nodosActivos.split(',');
+        
+        return [objetos, nodosActivos]
+    }
+
+    async mostrarInfoSistema(){
+        let [objetos, nodosActivos] = await this.pedirInformacionSistema();
 
         // Sacar información en forma de tabla
         console.log("\nINFORMACION DEL SISTEMA\n");
@@ -120,13 +133,47 @@ class Menu{
 
         console.log("\nNODOS ACTIVOS\n");
         console.table(nodosActivos);
-        
-        return [objetos, nodosActivos]
+    }
+
+    async quieroEliminarContenedor(){
+        // Pedir información del sistema para mostrar los contenedores
+        let [objetos, _] = await this.pedirInformacionSistema();
+
+        // Filtrar de los objetos solo los contenedores
+        let contenedores = objetos.filter(contenedor => contenedor.nombre !== 'br0');
+
+        // Mostrar contenedores activos
+        console.log("\nCONTENEDORES ACTIVOS\n");
+        console.table(contenedores);
+
+        // Pedir nombre del contenedor que quiere eliminar
+        let nombreCont = await this.preguntaAlUsuario('¿Qué contenedor quiere tumbar? ');
+
+        // Verificación de que existe
+        let match = contenedores.find(contenedor => contenedor.nombre === nombreCont);
+        if (typeof(match) === 'undefined'){
+            console.log('Ese contenedor no existe');
+            return
+        }
+
+        console.log(`Enviando petición de tumbar el contenedor ${match.nombre} al deamon`);
+        this.eliminaContenedor(match.nombre, match.IP);
+        console.log(`Esperando respuesta del deamon...`);
+        let respuesta = await this.respuestaDeamon();
+        console.log(`Respuesta del deamon: ${respuesta}`);
+
     }
 
     async quieroContenedor(){
         // Pedir información de los nodos disponibles
         let [objetos, nodosActivos] = await this.pedirInformacionSistema();
+
+        // Sacar información en forma de tabla
+        console.log("\nINFORMACION DEL SISTEMA\n");
+        console.table(objetos);
+
+        console.log("\nNODOS ACTIVOS\n");
+        console.table(nodosActivos);
 
         // Pedir nodo donde ponerlo
         let nodo = await this.preguntaAlUsuario('¿En que Nodo? ');
@@ -156,8 +203,6 @@ class Menu{
         console.log(`Esperando respuesta del deamon...`);
         let respuesta = await this.respuestaDeamon();
         console.log(`Respuesta del deamon: ${respuesta}`);
-
-        return
     }
 
     // Proxy del deamon
@@ -185,6 +230,12 @@ class Menu{
         this.socketReq.send([metodo, argumentos]);
     }
 
+    eliminaContenedor(nombreCont, IP){
+        const metodo = 'eliminaContenedor';
+        const argumentos = nombreCont + ',' + IP;
+        this.socketReq.send([metodo, argumentos]);
+    }
+
 }
 
 const main = async () => {
@@ -196,6 +247,7 @@ const main = async () => {
     //await menu.pedirInformacionSistema();
 
     // Para quitar la interfaz
+
     process.on('SIGINT', () => {
         console.log("\nDesconectandome del deamon y quitando interfaz");
         menu.socketReq.close();
