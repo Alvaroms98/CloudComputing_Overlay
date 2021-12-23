@@ -135,6 +135,49 @@ class Servidor{
         this.socketRep.send('La tarea ya está enviada al clúster');
     }
 
+    async abandonoElCluster(nodo, ...IPs){
+        // Iterar sobre cada una de las IPs que se pasan en los argumentos para eliminar
+        // de la base de datos etcd
+        try{
+            console.log(`El nodo: ${nodo} está abandonando el clúster...`);
+            for (let IP of IPs){
+                IP = IP.split('/')[0];
+    
+                // Buscamos la IP en la base de datos
+                let match = await this.etcd.get(IP);
+                
+                // Si no hay match respondemos al deamon que no existe
+                if (!match){
+                    console.log(`No se ha encontrado la IP: ${IP} en la base de datos`);
+                    console.log(`No se puede eliminar el objeto "${nombreCont}"`);
+                    this.socketRep.send(`No se ha encontrado la IP -> ${IP} en la base de datos, no se puede llevar a cabo la eliminación del objeto`);
+                    return
+                }
+    
+                // Si se encuentra la key hay que eliminarlo de la base de datos
+                await this.etcd.delete().key(IP);
+
+                // Lo pasamos a un objeto de JS
+                match = JSON.parse(match);
+
+                console.log(`Se ha eliminado de la base de datos -> ${IP}:{nombre = ${match.nombre}, IP = ${match.IP}, nodo = ${match.nodo}}`);
+            }
+
+            // Borrar de la lista el nodo que se da de baja
+            const nodoObjeto = this.infoNodos.find(elem => elem.nombre === nodo);
+            this.sacaloDeLaLista(this.infoNodos, nodoObjeto);
+            console.log(`El nodo: ${nodo} se ha eliminado de la lista de nodos activos`);
+            console.log(this.infoNodos);
+
+            // Responder al deamon que se ha dado de baja con éxito
+            this.socketRep.send(`Te has dado de baja con éxito, se han liberado todas las IPs que tenías registradas`);
+
+        } catch(err){
+            console.log(err);
+        }
+
+    }
+
 
 
     async dameBridgeIP(subred,nombreNodo){
@@ -230,6 +273,17 @@ class Servidor{
 
         console.log(`IP seleccionada: ${IP}`);
         return IP
+    }
+
+    sacaloDeLaLista(lista, objeto){
+        const nombreObjeto = objeto.nombre;
+        const indice = lista.map((elem) => elem.nombre).indexOf(nombreObjeto);
+
+        if (indice === -1){
+            console.log(`${objeto} no se ha encontrado en ${lista}`);
+        } else{
+            lista.splice(indice, 1);
+        }
     }
 
     prueba(mensaje){

@@ -69,9 +69,6 @@ class Menu{
                 console.log("Dar de baja al nodo");
                 break;
             case "5":
-                console.log("Dar de baja el clúster");
-                break;
-            case "6":
                 this.cerrarConsola();
                 break;
             default:
@@ -106,10 +103,9 @@ class Menu{
         const item1 = '1. Levantar Contenedor';
         const item2 = '2. Destruir Contenedor';
         const item3 = '3. Información del sistema';
-        const item4 = '4. Dar de baja nodo';
-        const item5 = '5. Dar de baja el clúster';
-        const item6 = '6. Salir del menú';
-        console.log(`\n\n\tMENU\n${item1}\n${item2}\n${item3}\n${item4}\n${item5}\n${item6}`);
+        const item4 = '4. Dar de baja nodo y cerrar';
+        const item5 = '5. Cerrar consola';
+        console.log(`\n\n\tMENU\n${item1}\n${item2}\n${item3}\n${item4}\n${item5}`);
     }
 
     async pedirInformacionSistema(){
@@ -214,6 +210,17 @@ class Menu{
         console.log(`Respuesta del deamon: ${respuesta}`);
     }
 
+    async suspenderNodo(){
+        // Enviar al deamon la petición
+        console.log(`Enviando la petición al deamon, esperando respuesta...`);
+        this.darmeDeBaja();
+
+        let respuesta = await this.respuestaDeamon();
+        console.log(`Respuesta del deamon: ${respuesta}`);
+
+        this.cerrarConsola();
+    }
+
     cerrarConsola(){
         console.log("\nDesconectandome del deamon y cerrando interfaz");
         this.teclado.close();
@@ -254,6 +261,12 @@ class Menu{
 
     estasConfigurado(){
         const metodo = 'estasConfigurado';
+        const argumentos = '';
+        this.socketReq.send([metodo, argumentos]);
+    }
+
+    darmeDeBaja(){
+        const metodo = 'darmeDeBaja';
         const argumentos = '';
         this.socketReq.send([metodo, argumentos]);
     }

@@ -129,6 +129,43 @@ class Deamon{
         }
     }
 
+    // Método para darme de baja del servidor, eliminar contenedores y limpiar todo
+
+    async darmeDeBaja(){
+        try{
+            // Guardamos todas la IPs utilizadas en este nodo (contenedores y bridge)
+            // en una variable, para enviarsela al servidor
+            const contIPs = this.misContenedores.map((cont) => cont.IP);
+            let allIPs = this.bridgeIP;
+            for (const contIP of contIPs){
+                allIPs += contIP;
+            }
+
+            // Enviarle al servidor todas las IPs para que las libere y me de de baja
+            this.abandonoElCluster(this.miNombre, allIPs);
+            const respuesta = await this.respuestaServidor();
+            console.log(`Respuesta del servidor: ${respuesta}`);
+
+            // for loop para eliminar todos los contenedores
+            for (const contenedor of this.misContenedores){
+                await this.teTocaTumbarlo(this.miNombre, contenedor.IP, contenedor.nombre);
+            }
+
+            // Eliminar las interfaces bridge y vxlan
+            //let [stdout, stderr] = await this.comandoBash(`sudo ip link del br0`);
+            //let [stdout, stderr] = await this.comandoBash(`sudo ip link del vxlan1`);
+
+            // Podriamos limpiar Iptables... pero aún no se como hacerlo
+
+            // Cuando todo esté limpio, respondemos al cliente y cerramos
+            this.socketServicio.send(`Todo tumbado y todo limpio, hasta luego!`);
+
+            this.matarDeamon();
+        } catch(err){
+            console.log(err);
+        }
+    }
+
     // Comprobar si se ha configurado ya cuando la consola ataque al deamon
     estasConfigurado(){
         // El protocolo de respuesta es: si o no
@@ -348,6 +385,14 @@ class Deamon{
         }
     }
 
+    matarDeamon(){
+        console.log("Cerrando servicio y matando deamon");
+        this.socketServicio.close();
+        this.socketReq.close();
+        this.socketSub.close();
+        process.exit(0);
+    }
+
     prueba(mensaje){
         console.log(`Estoy en el metodo de prueba del deamon, he recibido: ${mensaje}`);
     }
@@ -387,6 +432,12 @@ class Deamon{
         const argumentos = nombreCont + ',' + IP;
         this.socketReq.send([metodo, argumentos]);
     }
+
+    abandonoElCluster(nodo, IPs){
+        const metodo = 'abandonoElCluster';
+        const argumentos = nodo + ',' + IPs;
+        this.socketReq.send([metodo, argumentos]);
+    }
 }
 
 
@@ -418,6 +469,7 @@ const main = () => {
         deamon.socketServicio.close();
         deamon.socketReq.close();
         deamon.socketSub.close();
+        process.exit(1);
     });
 
 }
