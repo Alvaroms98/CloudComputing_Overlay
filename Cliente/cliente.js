@@ -48,6 +48,15 @@ class Menu{
         });
     }
 
+    imprimirMenu(){
+        const item1 = '1. Levantar Contenedor';
+        const item2 = '2. Destruir Contenedor';
+        const item3 = '3. Información del sistema';
+        const item4 = '4. Dar de baja nodo y cerrar';
+        const item5 = '5. Cerrar consola';
+        console.log(`\n\n\tMENU\n${item1}\n${item2}\n${item3}\n${item4}\n${item5}`);
+    }
+
     async acciones(){
         try{
             // Imprimimos el menú de acciones
@@ -105,17 +114,6 @@ class Menu{
         }
     }
 
-
-
-
-    imprimirMenu(){
-        const item1 = '1. Levantar Contenedor';
-        const item2 = '2. Destruir Contenedor';
-        const item3 = '3. Información del sistema';
-        const item4 = '4. Dar de baja nodo y cerrar';
-        const item5 = '5. Cerrar consola';
-        console.log(`\n\n\tMENU\n${item1}\n${item2}\n${item3}\n${item4}\n${item5}`);
-    }
 
     async pedirInformacionSistema(){
         try{

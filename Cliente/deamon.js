@@ -225,7 +225,7 @@ class Deamon{
                 console.log("Existe el directorio: /run/netns");
             } else{
                 console.log("No existe el directorio: /run/netns");
-                await mkdir('/run/netns/');
+                [stdout, stderr] = await this.comandoBash(`sudo mkdir /run/netns`);
             }
 
             // Aplicar reglas de Source NAT para la subred seleccionada
