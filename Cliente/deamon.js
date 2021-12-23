@@ -249,7 +249,7 @@ class Deamon{
 
             let hostIF;
             [hostIF, stderr] = await this.comandoBash(`sudo ip a | grep -m 1 'state UP' | awk '{print $2}'`);
-            hostIF = hostIF.slice(0,-1);
+            hostIF = hostIF.slice(0,-2);
             [stdout, stderr] = await this.comandoBash(`sudo ip link add vxlan1 type vxlan id 42 dstport 4789 group 239.1.1.1 dev ${hostIF} ttl 20`);
             [stdout, stderr] = await this.comandoBash(`sudo ip link set vxlan1 up`);
 
