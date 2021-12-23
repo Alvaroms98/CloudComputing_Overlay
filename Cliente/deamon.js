@@ -34,6 +34,8 @@ class Deamon{
         this.subred = '';
         this.bridgeIP = '';
 
+        this.nodoConfigurado = false;
+
         //sockets para servir al cliente y para conectarse al servidor
 
         //socket servicio
@@ -127,6 +129,21 @@ class Deamon{
         }
     }
 
+    // Comprobar si se ha configurado ya cuando la consola ataque al deamon
+    estasConfigurado(){
+        // El protocolo de respuesta es: si o no
+
+        if (this.nodoConfigurado){
+            const respuesta = 'si';
+            const info = `Este nodo (alias: ${this.miNombre}) está configurado con subred: ${this.subred}`;
+            this.socketServicio.send(respuesta + ',' + info);
+        } else{
+            const respuesta = 'no';
+            const info = `Este nodo (alias: ${this.miNombre}) no está configurado todavía`;
+            this.socketServicio.send(respuesta + ',' + info);
+        }
+    }
+
     async dameInfoSistema(){
 
         try{
@@ -195,6 +212,11 @@ class Deamon{
             // Poner la IP al bridge
             console.log(`Asignando la IP ${this.bridgeIP} al br0`);
             //let [stdout, stderr] = await this.comandoBash(`sudo ip a add ${this.bridgeIP} dev br0`)
+
+
+            // Ponemos el flag de configuración en True
+            this.nodoConfigurado = true;
+
 
             // Respondemos al cliente que todo bien
             this.socketServicio.send('Nodo configurado, listo para el servicio!!')

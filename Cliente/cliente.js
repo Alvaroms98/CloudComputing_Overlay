@@ -2,6 +2,7 @@
 // de creación y destrucción de contenedores en el cluster de la LAN
 
 // Dependencias
+const { memoryUsage } = require('process');
 const { stringify } = require('querystring');
 const readline = require('readline');
 const zmq = require('zeromq');
@@ -65,7 +66,13 @@ class Menu{
                 await this.mostrarInfoSistema();
                 break;
             case "4":
-                console.log("Ha elegido cerrar todo... JAJJA");
+                console.log("Dar de baja al nodo");
+                break;
+            case "5":
+                console.log("Dar de baja el clúster");
+                break;
+            case "6":
+                this.cerrarConsola();
                 break;
             default:
                 console.log("La opción no corresponde con ninguna disponible");
@@ -99,8 +106,10 @@ class Menu{
         const item1 = '1. Levantar Contenedor';
         const item2 = '2. Destruir Contenedor';
         const item3 = '3. Información del sistema';
-        const item4 = '4. Salir del menú';
-        console.log(`\n\n\tMENU\n${item1}\n${item2}\n${item3}\n${item4}`);
+        const item4 = '4. Dar de baja nodo';
+        const item5 = '5. Dar de baja el clúster';
+        const item6 = '6. Salir del menú';
+        console.log(`\n\n\tMENU\n${item1}\n${item2}\n${item3}\n${item4}\n${item5}\n${item6}`);
     }
 
     async pedirInformacionSistema(){
@@ -205,6 +214,13 @@ class Menu{
         console.log(`Respuesta del deamon: ${respuesta}`);
     }
 
+    cerrarConsola(){
+        console.log("\nDesconectandome del deamon y cerrando interfaz");
+        this.teclado.close();
+        this.socketReq.close();
+        process.exit(0);
+    }
+
     // Proxy del deamon
 
     // En los proxys mandamos como primer elemento del array el método
@@ -236,20 +252,40 @@ class Menu{
         this.socketReq.send([metodo, argumentos]);
     }
 
+    estasConfigurado(){
+        const metodo = 'estasConfigurado';
+        const argumentos = '';
+        this.socketReq.send([metodo, argumentos]);
+    }
+
 }
 
 const main = async () => {
     const puertoDeamon = process.argv[2] || 5002;
 
     const menu = new Menu(puertoDeamon);
-    await menu.configurarNodo();
 
-    //await menu.pedirInformacionSistema();
+    // Checkear si el nodo está configurado para configurarlo o no
+    console.log(`Preguntando al deamon si está configurado, esperando respuesta...`);
+    menu.estasConfigurado();
+    let respuesta = await menu.respuestaDeamon();
+    respuesta = respuesta.split(',');
+    
+    if (respuesta[0] === 'no'){
+        console.log(`Respuesta del deamon: ${respuesta[1]}`);
+        console.log(`Hay que configurarlo:`);
+        await menu.configurarNodo();
+    } else{
+        console.log(`Respuesta del deamon: ${respuesta[1]}`);
+        console.log(`Saltando al menú directamente...`);
+    }
+    
 
     // Para quitar la interfaz
 
     process.on('SIGINT', () => {
-        console.log("\nDesconectandome del deamon y quitando interfaz");
+        console.log("\nDesconectandome del deamon y cerrando interfaz");
+        menu.teclado.close();
         menu.socketReq.close();
         process.exit(0);
     });

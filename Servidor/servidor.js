@@ -126,7 +126,7 @@ class Servidor{
         // Lo pasamos a un objeto de JS
         match = JSON.parse(match);
 
-        console.log(`Se ha eliminado de la base de datos -> ${IP}:${match}`);
+        console.log(`Se ha eliminado de la base de datos -> ${IP}:{nombre = ${match.nombre}, IP = ${match.IP}, nodo = ${match.nodo}}`);
 
         // Publicamos la tarea
         this.teTocaTumbarlo(match.nodo, match.IP, match.nombre);
