@@ -106,7 +106,30 @@ class Servidor{
 
     async hayQueTumbarContenedor(nombreCont, IP){
         // Hay que buscar la IP en etcd y si hay match enviar la tarea
-        console.log(nombreCont, IP);
+
+        // Nos quedamos con la IP sin la máscara
+        IP = IP.split('/')[0];
+
+        // Buscamos la IP en la base de datos
+        let match = await this.etcd.get(IP);
+        
+        // Si no hay match respondemos al deamon que no existe
+        if (!match){
+            console.log(`No se ha encontrado la IP: ${IP} en la base de datos`);
+            console.log(`No se puede eliminar el objeto "${nombreCont}"`);
+            this.socketRep.send(`No se ha encontrado la IP -> ${IP} en la base de datos, no se puede llevar a cabo la eliminación del objeto`);
+        }
+
+        // Si se encuentra la key hay que eliminarlo de la base de datos
+        await this.etcd.delete().key(IP);
+
+        // Lo pasamos a un objeto de JS
+        match = JSON.parse(match);
+
+        console.log(`Se ha eliminado de la base de datos -> ${IP}:${match}`);
+
+        // Publicamos la tarea
+        this.teTocaTumbarlo(match.nodo, match.IP, match.nombre);
 
         // Responder al deamon que ha notificado la tarea que todo ok
         this.socketRep.send('La tarea ya está enviada al clúster');
@@ -225,6 +248,12 @@ class Servidor{
     teTocaArremangarteYLevantar(nodo, nombreCont, IP){
         const metodo = 'teTocaArremangarteYLevantar';
         const argumentos = nodo + ',' + nombreCont + ',' + IP;
+        this.socketPub.send(['deamon', metodo, argumentos]);
+    }
+
+    teTocaTumbarlo(nodo, contIP, nombreCont){
+        const metodo = 'teTocaTumbarlo';
+        const argumentos = nodo + ',' + contIP + ',' + nombreCont;
         this.socketPub.send(['deamon', metodo, argumentos]);
     }
 

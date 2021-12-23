@@ -108,28 +108,39 @@ class Deamon{
     // Método para darme de alta en el servidor
     async darmeDeAlta(miNombre, miIP){
 
-        console.log("Dandome de alta en el clúster, esperando respuesta...");
-        this.registrameEnElCluster(miNombre,miIP);
+        try{
+            console.log("Dandome de alta en el clúster, esperando respuesta...");
+            this.registrameEnElCluster(miNombre,miIP);
+    
+            let respuesta = await this.respuestaServidor();
+            console.log(`Respuesta del servidor: ${respuesta}`);
+    
+            if (respuesta !== 'dentro'){
+                this.socketReq.close();
+                this.socketServicio.close();
+                this.socketSub.close();
+                process.exit(1);
+            }
 
-        let respuesta = await this.respuestaServidor();
-        console.log(`Respuesta del servidor: ${respuesta}`);
-
-        if (respuesta !== 'dentro'){
-            this.socketReq.close();
-            this.socketServicio.close();
-            this.socketSub.close();
-            process.exit(1);
+        } catch (err){
+            console.log(err);
         }
-
     }
 
     async dameInfoSistema(){
-        console.log(`Pidiendo información del clúster al servidor`);
-        this.infoSistema();
-        let respuesta = await this.respuestaServidor();
 
-        // Respondemos al cliente con toda la info
-        this.socketServicio.send(respuesta);
+        try{
+            console.log(`Pidiendo información del clúster al servidor`);
+            this.infoSistema();
+            let respuesta = await this.respuestaServidor();
+    
+            // Respondemos al cliente con toda la info
+            this.socketServicio.send(respuesta);
+
+        } catch(err){
+            console.log(err);
+        }
+
     }
 
     // Configurar el nodo
@@ -204,7 +215,7 @@ class Deamon{
         try{
             // Lanzamos el contenedor sin red
             console.log(`Levantando contenedor "${nombreCont}", sin configuración de red`);
-            let [stdout, stderr] = await this.comandoBash(`sudo docker run -itd --rm --network=none --name=${nombreCont} ubuntu_overlay`);
+            //let [stdout, stderr] = await this.comandoBash(`sudo docker run -itd --rm --network=none --name=${nombreCont} ubuntu_overlay`);
 
             // Cazamos el PID del contenedor
             console.log(`Recogemos el PID del contenedor ${nombreCont}`);
@@ -243,25 +254,76 @@ class Deamon{
 
     }
 
+    async teTocaTumbarlo(nodo, contIP, nombreCont){
+        // Comprobamos si me ha tocado a mi
+        if (nodo !== this.miNombre){
+            console.log(`La tarea no es para mi`);
+            return
+        }
+
+        try{
+            console.log(`Buscando contenedor ${nombreCont} para tumbarlo`);
+            // Buscamos el contenedor en la lista del deamon
+            const contenedor = this.misContenedores.find(contenedor => contenedor.nombre === nombreCont);
+            console.log(`Contenedor encontrado: ${contenedor}`);
+    
+    
+            console.log(`Deshaciendo el link simbólico del netns y tumbando contenedor`);
+            // Eliminamos link simbolico y matamos el contenedor
+            //let [stdout, stderr] = await this.comandoBash(`sudo unlink /run/netns/${contenedor.netns}`);
+            //let [stdout, stderr] = await this.comandoBash(`sudo docker kill ${contenedor.nombre}`);
+    
+            console.log(`Contenedor ${contenedor.nombre} tumbado, eliminandolo de la lista de contenedor activos de este nodo`);
+            // Hay que sacar ese contenedor de la lista
+            this.sacaloDeLaLista(this.misContenedores, contenedor);
+            console.log(this.misContenedores);
+
+        } catch(err){
+            console.log(err);
+        }
+    }
+
     async levantaContenedor(nodo, contenedor){
-        console.log(`Hay que levantar en el nodo: ${nodo}, el contenedor: ${contenedor}`);
+        try{
+            console.log(`Hay que levantar en el nodo: ${nodo}, el contenedor: ${contenedor}`);
 
-        // Pasando la petición al servidor
-        this.hayQueLevantarOtro(nodo, contenedor, this.subred);
-        let respuesta = await this.respuestaServidor();
-        console.log(`Respuesta del servidor: ${respuesta}`);
+            // Pasando la petición al servidor
+            this.hayQueLevantarOtro(nodo, contenedor, this.subred);
+            let respuesta = await this.respuestaServidor();
+            console.log(`Respuesta del servidor: ${respuesta}`);
+    
+    
+            this.socketServicio.send('Petición recibida por el servidor');
 
-
-        this.socketServicio.send('Petición recibida por el servidor');
+        } catch(err){
+            console.log(err);
+        }
     }
 
     async eliminaContenedor(nombreCont, IP){
-        // Pasando la petición al servidor
-        this.hayQueTumbarContenedor(nombreCont, IP);
-        let respuesta = await this.respuestaServidor();
-        console.log(`Respuesta del servidor: ${respuesta}`);
 
-        this.socketServicio.send('Petición recibida por el servidor');
+        try{
+            // Pasando la petición al servidor
+            this.hayQueTumbarContenedor(nombreCont, IP);
+            let respuesta = await this.respuestaServidor();
+            console.log(`Respuesta del servidor: ${respuesta}`);
+
+            this.socketServicio.send('Petición recibida por el servidor');
+
+        } catch(err){
+            console.log(err);
+        }
+    }
+
+    sacaloDeLaLista(lista, objeto){
+        const nombreObjeto = objeto.nombre;
+        const indice = lista.map((elem) => elem.nombre).indexOf(nombreObjeto);
+
+        if (indice === -1){
+            console.log(`${objeto} no se ha encontrado en ${lista}`);
+        } else{
+            lista.splice(indice, 1);
+        }
     }
 
     prueba(mensaje){
@@ -308,8 +370,8 @@ class Deamon{
 
 const main = () => {
     const miNombre = process.argv[2] || 'Zeus';
-    const miIP = process.argv[3] || 'localhost';
-    const servidorIP = process.argv[4] || 'localhost';
+    const servidorIP = process.argv[3] || 'localhost';
+    const miIP = process.argv[4] || 'localhost';
     const LAN = process.argv[5] || '192.168.1.0/24';
     const puertoServicio = process.argv[6] || 5002;
     const puertoReq = process.argv[7] || 8081;
