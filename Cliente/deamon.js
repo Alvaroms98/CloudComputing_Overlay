@@ -111,8 +111,15 @@ class Deamon{
     async darmeDeAlta(miNombre, miIP){
 
         try{
+            if(miIP === 'localhost'){
+                let stderr;
+                // cazar la IP del host
+                [this.miIP, stderr] = await this.comandoBash(`sudo ip a | grep -m 1 -A 6 'state UP' | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}'`);
+                this.miIP = this.miIP.slice(0,-1);
+            }
+
             console.log("Dandome de alta en el clúster, esperando respuesta...");
-            this.registrameEnElCluster(miNombre,miIP);
+            this.registrameEnElCluster(miNombre,this.miIP);
     
             let respuesta = await this.respuestaServidor();
             console.log(`Respuesta del servidor: ${respuesta}`);
@@ -152,8 +159,8 @@ class Deamon{
             }
 
             // Eliminar las interfaces bridge y vxlan
-            //let [stdout, stderr] = await this.comandoBash(`sudo ip link del br0`);
-            //let [stdout, stderr] = await this.comandoBash(`sudo ip link del vxlan1`);
+            let [stdout, stderr] = await this.comandoBash(`sudo ip link del br0`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link del vxlan1`);
 
             // Podriamos limpiar Iptables... pero aún no se como hacerlo
 
@@ -205,39 +212,46 @@ class Deamon{
         try{
             // Construir la imagen de los contenedores sin red
             console.log("Generando imagen Docker: ubuntu_overlay");
-            // let [stdout, stderr] = await this.comandoBash(`sudo docker build -t ubuntu_overlay .`)
-            // console.log(stdout);
+            let [stdout, stderr] = await this.comandoBash(`sudo docker build -t ubuntu_overlay .`);
+            console.log(stdout);
 
             
 
             console.log("Cambiando politica de la cadena de FORWARD a ACCEPT");
-            //let [stdout, stderr] = await this.comandoBash(`sudo iptables -P FORWARD ACCEPT`);
+            [stdout, stderr] = await this.comandoBash(`sudo iptables -P FORWARD ACCEPT`);
 
             console.log("Comprobando si existe directorio: /run/netns/");
             if (existsSync('/run/netns')){
                 console.log("Existe el directorio: /run/netns");
             } else{
                 console.log("No existe el directorio: /run/netns");
-                //await mkdir('/run/netns/');
+                await mkdir('/run/netns/');
             }
 
             // Aplicar reglas de Source NAT para la subred seleccionada
 
             // Listar todas las reglas de nat
-            let [stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -S`);
+            [stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -S`);
 
             // Separar las reglas por filas y buscar el match
             let match = stdout.split('\n').find(line => line === `-A POSTROUTING -s ${subred} -j MASQUERADE`);
             // Si match es indefinido se pone regla, sino nada
             if (typeof(match) === 'undefined'){
                 console.log("Poniendo regla de NAT en iptables");
-                //[stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -A POSTROUTING -s ${subred} -j MASQUERADE`)
+                [stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -A POSTROUTING -s ${subred} -j MASQUERADE`);
             }
 
 
-            // Levantar interfaces
-            console.log("Levantando interfaces bridge and VxLAN");
-            // let [stdout, stderr] = await this.comandoBash(`sudo ip link add br0 type bridge`);
+            // Crear y levantar interfaces bridge=br0 y Vxlan=vxlan1
+            console.log("Levantando interfaces bridge y VxLAN");
+            [stdout, stderr] = await this.comandoBash(`sudo ip link add br0 type bridge`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link set br0 up`);
+
+            let hostIF;
+            [hostIF, stderr] = await this.comandoBash(`sudo ip a | grep -m 1 'state UP' | awk '{print $2}'`);
+            hostIF = hostIF.slice(0,-1);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link add vxlan1 type vxlan id 42 dstport 4789 group 239.1.1.1 dev ${hostIF} ttl 20`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link set vxlan1 up`);
 
 
             console.log("Pidiendo una direccion IP para el bridge al servidor, esperando respuesta...");
@@ -248,7 +262,7 @@ class Deamon{
 
             // Poner la IP al bridge
             console.log(`Asignando la IP ${this.bridgeIP} al br0`);
-            //let [stdout, stderr] = await this.comandoBash(`sudo ip a add ${this.bridgeIP} dev br0`)
+            [stdout, stderr] = await this.comandoBash(`sudo ip a add ${this.bridgeIP} dev br0`);
 
 
             // Ponemos el flag de configuración en True
@@ -256,10 +270,11 @@ class Deamon{
 
 
             // Respondemos al cliente que todo bien
-            this.socketServicio.send('Nodo configurado, listo para el servicio!!')
+            this.socketServicio.send('Nodo configurado, listo para el servicio!!');
 
         } catch (err) {
             console.log(err);
+            this.socketServicio.send(err);
         }
     }
 
@@ -274,37 +289,39 @@ class Deamon{
         try{
             // Lanzamos el contenedor sin red
             console.log(`Levantando contenedor "${nombreCont}", sin configuración de red`);
-            //let [stdout, stderr] = await this.comandoBash(`sudo docker run -itd --rm --network=none --name=${nombreCont} ubuntu_overlay`);
+            let [stdout, stderr] = await this.comandoBash(`sudo docker run -itd --rm --network=none --name=${nombreCont} ubuntu_overlay`);
 
             // Cazamos el PID del contenedor
             console.log(`Recogemos el PID del contenedor ${nombreCont}`);
-            //let [pid, stderr] = await this.comandoBash(`sudo docker inspect --format '{{.State.Pid}}' ${nombreCont}`);
+            let pid;
+            [pid, stderr] = await this.comandoBash(`sudo docker inspect --format '{{.State.Pid}}' ${nombreCont}`);
+            pid = pid.slice(0,-1);
 
             // Creamos link simbólico del netns del contenedor a /run/netns/
             console.log("Creamos link simbólico del netns del contenedor a /run/netns/");
-            //[stdout, stderr] = await this.comandoBash(`sudo ln -s /proc/${pid}/ns/net /run/netns/netns_${nombreCont}`);
+            [stdout, stderr] = await this.comandoBash(`sudo ln -s /proc/${pid}/ns/net /run/netns/netns_${nombreCont}`);
 
             // Creamos interfaces veth
             console.log(`Creando las interfaces VETH y conectando con br0`);
-            //[stdout, stderr] = await this.comandoBash(`sudo ip link add eth0 netns netns_${nombreCont} type veth peer name veth_${nombreCont}`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link add eth0 netns netns_${nombreCont} type veth peer name veth_${nombreCont}`);
 
             // Asignamos direccion IP
             console.log(`Asignando la direccion IP: ${IP}, a la interfaz eth0 del netns_${nombreCont}`);
-            //[stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} a add ${IP} dev eth0`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} a add ${IP} dev eth0`);
 
             // Levantamos las interfaces
-            //[stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} link set eth0 up`);
-            //[stdout, stderr] = await this.comandoBash(`sudo ip link set veth_${nombreCont} up`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} link set eth0 up`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link set veth_${nombreCont} up`);
 
             // Anclamos la veth del netns del host a br0
-            //[stdout, stderr] = await this.comandoBash(`sudo ip link set veth_${nombreCont} master br0`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link set veth_${nombreCont} master br0`);
 
             // Reglas de enrutamiento
-            //[stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} r add default via ${this.bridgeIP.split('/')[0]}`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} r add default via ${this.bridgeIP.split('/')[0]}`);
 
             // Si todo ha ido bien hasta aqui nos guardamos la info del contenedor
             console.log(`Levantamiento finalizado con éxito, guardamos la info del contenedor`);
-            this.misContenedores.push(new Contenedor(nombreCont, IP, "pid", `netns_${nombreCont}`, `veth_${nombreCont}`));
+            this.misContenedores.push(new Contenedor(nombreCont, IP, pid, `netns_${nombreCont}`, `veth_${nombreCont}`));
             console.log(this.misContenedores);
 
         } catch(err){
@@ -324,13 +341,13 @@ class Deamon{
             console.log(`Buscando contenedor ${nombreCont} para tumbarlo`);
             // Buscamos el contenedor en la lista del deamon
             const contenedor = this.misContenedores.find(contenedor => contenedor.nombre === nombreCont);
-            console.log(`Contenedor encontrado: ${contenedor}`);
+            console.log(`Contenedor encontrado: `, contenedor);
     
     
             console.log(`Deshaciendo el link simbólico del netns y tumbando contenedor`);
             // Eliminamos link simbolico y matamos el contenedor
-            //let [stdout, stderr] = await this.comandoBash(`sudo unlink /run/netns/${contenedor.netns}`);
-            //let [stdout, stderr] = await this.comandoBash(`sudo docker kill ${contenedor.nombre}`);
+            let [stdout, stderr] = await this.comandoBash(`sudo unlink /run/netns/${contenedor.netns}`);
+            [stdout, stderr] = await this.comandoBash(`sudo docker kill ${contenedor.nombre}`);
     
             console.log(`Contenedor ${contenedor.nombre} tumbado, eliminandolo de la lista de contenedor activos de este nodo`);
             // Hay que sacar ese contenedor de la lista
@@ -356,6 +373,7 @@ class Deamon{
 
         } catch(err){
             console.log(err);
+            this.socketServicio.send(err);
         }
     }
 
@@ -371,6 +389,7 @@ class Deamon{
 
         } catch(err){
             console.log(err);
+            this.socketServicio.send(err);
         }
     }
 

@@ -65,10 +65,10 @@ class Servidor{
     }
 
     registrameEnElCluster(nombreNodo, nodoIP){
-        const match = this.infoNodos.find(nodo => nodo.nombre === nombreNodo);
+        const match = this.infoNodos.find(nodo => nodo.IP === nodoIP);
         if (match){
             // Responder al deamon
-            this.socketRep.send('Ya existe un nodo con ese nombre');
+            this.socketRep.send('Ya existe un nodo con esa dirección IP en el clúster');
         } else{
             console.log(`Añadiendo al nuevo nodo: ${nombreNodo}`);
             this.infoNodos.push(new Nodo(nombreNodo, nodoIP));
@@ -79,60 +79,80 @@ class Servidor{
         }
     }
 
-    async infoSistema(vacio){
-        // Consultar la base de datos
-        const todo = await this.etcd.getAll().all();
-        const todoObjetos = Object.values(todo);
+    async infoSistema(){
+        try{
+            // Consultar la base de datos
+            const todo = await this.etcd.getAll().all();
+            const todoObjetos = Object.values(todo);
 
-        // ver los nodos dados de alta
-        const nodosActivos = [];
-        for (const nodoActivo of this.infoNodos){
-            nodosActivos.push(nodoActivo.nombre);
+            // ver los nodos dados de alta
+            const nodosActivos = [];
+            for (const nodoActivo of this.infoNodos){
+                nodosActivos.push(nodoActivo.nombre);
+            }
+
+            // Responder al deamon con la información
+            this.socketRep.send(`${todoObjetos}\t${nodosActivos}`);
+
+        } catch(err){
+            console.log(err);
+            this.socketRep.send(err);
         }
 
-        // Responder al deamon con la información
-        this.socketRep.send(`${todoObjetos}\t${nodosActivos}`);
     }
 
     async hayQueLevantarOtro(nodo, nombreCont, subred){
-        const IP = await this.eligeIP(subred, nodo, nombreCont);
+        try{
+            const IP = await this.eligeIP(subred, nodo, nombreCont);
 
-        // una vez elegida la IP, publicamos la tarea
-        this.teTocaArremangarteYLevantar(nodo, nombreCont, IP);
+            // una vez elegida la IP, publicamos la tarea
+            this.teTocaArremangarteYLevantar(nodo, nombreCont, IP);
 
-        // Respondemos al deamon que ha notificado de la tarea que todo ok
-        this.socketRep.send('La tarea ya está enviada al clúster');
+            // Respondemos al deamon que ha notificado de la tarea que todo ok
+            this.socketRep.send('La tarea ya está enviada al clúster');
+
+        } catch(err){
+            console.log(err);
+            this.socketRep.send(err);
+        }
     }
 
     async hayQueTumbarContenedor(nombreCont, IP){
-        // Hay que buscar la IP en etcd y si hay match enviar la tarea
+        try{
+            // Hay que buscar la IP en etcd y si hay match enviar la tarea
 
-        // Nos quedamos con la IP sin la máscara
-        IP = IP.split('/')[0];
+            // Nos quedamos con la IP sin la máscara
+            IP = IP.split('/')[0];
 
-        // Buscamos la IP en la base de datos
-        let match = await this.etcd.get(IP);
-        
-        // Si no hay match respondemos al deamon que no existe
-        if (!match){
-            console.log(`No se ha encontrado la IP: ${IP} en la base de datos`);
-            console.log(`No se puede eliminar el objeto "${nombreCont}"`);
-            this.socketRep.send(`No se ha encontrado la IP -> ${IP} en la base de datos, no se puede llevar a cabo la eliminación del objeto`);
+            // Buscamos la IP en la base de datos
+            let match = await this.etcd.get(IP);
+            
+            // Si no hay match respondemos al deamon que no existe
+            if (!match){
+                console.log(`No se ha encontrado la IP: ${IP} en la base de datos`);
+                console.log(`No se puede eliminar el objeto "${nombreCont}"`);
+                this.socketRep.send(`No se ha encontrado la IP -> ${IP} en la base de datos, no se puede llevar a cabo la eliminación del objeto`);
+            }
+
+            // Si se encuentra la key hay que eliminarlo de la base de datos
+            await this.etcd.delete().key(IP);
+
+            // Lo pasamos a un objeto de JS
+            match = JSON.parse(match);
+
+            console.log(`Se ha eliminado de la base de datos -> ${IP}:{nombre = ${match.nombre}, IP = ${match.IP}, nodo = ${match.nodo}}`);
+
+            // Publicamos la tarea
+            this.teTocaTumbarlo(match.nodo, match.IP, match.nombre);
+
+            // Responder al deamon que ha notificado la tarea que todo ok
+            this.socketRep.send('La tarea ya está enviada al clúster');
+
+        } catch(err){
+            console.log(err);
+            this.socketRep.send(err);
         }
 
-        // Si se encuentra la key hay que eliminarlo de la base de datos
-        await this.etcd.delete().key(IP);
-
-        // Lo pasamos a un objeto de JS
-        match = JSON.parse(match);
-
-        console.log(`Se ha eliminado de la base de datos -> ${IP}:{nombre = ${match.nombre}, IP = ${match.IP}, nodo = ${match.nodo}}`);
-
-        // Publicamos la tarea
-        this.teTocaTumbarlo(match.nodo, match.IP, match.nombre);
-
-        // Responder al deamon que ha notificado la tarea que todo ok
-        this.socketRep.send('La tarea ya está enviada al clúster');
     }
 
     async abandonoElCluster(nodo, ...IPs){
@@ -174,6 +194,7 @@ class Servidor{
 
         } catch(err){
             console.log(err);
+            this.socketRep.send(err);
         }
 
     }
@@ -181,50 +202,33 @@ class Servidor{
 
 
     async dameBridgeIP(subred,nombreNodo){
-        const IP = await this.eligeIP(subred,nombreNodo,'br0');
+        try{
+            const IP = await this.eligeIP(subred,nombreNodo,'br0');
         
-        // Responder al deamon
-        this.socketRep.send(IP);
+            // Responder al deamon
+            this.socketRep.send(IP);
+
+        } catch(err){
+            console.log(err);
+            this.socketRep.send(err);
+        }
     }
 
     async eligeIP(subred, nodo, objeto){
-        console.log(`Eligiendo IP para nodo: ${nodo}`);
+        try{
+            console.log(`Eligiendo IP para nodo: ${nodo}`);
 
-        var [IP,masc] = subred.split('/');
-        var [byte1,byte2,byte3,byte4] = IP.split('.');
+            var [IP,masc] = subred.split('/');
+            var [byte1,byte2,byte3,byte4] = IP.split('.');
 
-        var match;
-        var valor;
-        switch (masc){
-            case '24':
+            var match;
+            var valor;
+            switch (masc){
+                case '24':
 
-                for (const i of Array(253).keys()){
-                    console.log(`Probando IP: ${byte1}.${byte2}.${byte3}.${i+1}`);
-                    let pruebaIP = `${byte1}.${byte2}.${byte3}.${i+1}`;
-
-                    // Preguntarmos a etcd si está registrada esa IP
-                    match = await this.etcd.get(pruebaIP);
-                    if (!match){
-                        IP = pruebaIP + '/' + masc;
-                        valor = new Valor(objeto, IP, nodo);
-                        // Registrar IP y objeto en la base de datos
-                        await this.etcd.put(pruebaIP).value(JSON.stringify(valor));
-                        break;
-                    }
-                }
-                if (match){
-                    // Aqui hay que hacer algo más para no devolver ninguna IP
-                    console.log(`No hay IPs disponibles`);
-                }
-                
-                break;
-
-            case '16':
-                loop1:
-                for (const i of Array(253).keys()){
-                    for (const j of Array(253).keys()){
-                        console.log(`Probando IP: ${byte1}.${byte2}.${i+1}.${j+1}`);
-                        let pruebaIP = `${byte1}.${byte2}.${i+1}.${j+1}`;
+                    for (const i of Array(253).keys()){
+                        console.log(`Probando IP: ${byte1}.${byte2}.${byte3}.${i+1}`);
+                        let pruebaIP = `${byte1}.${byte2}.${byte3}.${i+1}`;
 
                         // Preguntarmos a etcd si está registrada esa IP
                         match = await this.etcd.get(pruebaIP);
@@ -233,23 +237,24 @@ class Servidor{
                             valor = new Valor(objeto, IP, nodo);
                             // Registrar IP y objeto en la base de datos
                             await this.etcd.put(pruebaIP).value(JSON.stringify(valor));
-                            break loop1;
+                            break;
                         }
                     }
-                }
-                if (match){
-                    console.log(`No hay IPs disponibles`);
-                }
-                break;
+                    if (match){
+                        // Aqui hay que hacer algo más para no devolver ninguna IP
+                        console.log(`No hay IPs disponibles`);
+                    }
+                    
+                    break;
 
-            case '8':
-                loop1:
-                for (const i of Array(253).keys()){
-                    for (const j of Array(253).keys()){
-                        for (const k of Array(253).keys()){
-                            console.log(`Probando IP: ${byte1}.${i+1}.${j+1}.${k+1}`);
-                            let pruebaIP = `${byte1}.${i+1}.${j+1}.${k+1}`;
-                             // Preguntarmos a etcd si está registrada esa IP
+                case '16':
+                    loop1:
+                    for (const i of Array(253).keys()){
+                        for (const j of Array(253).keys()){
+                            console.log(`Probando IP: ${byte1}.${byte2}.${i+1}.${j+1}`);
+                            let pruebaIP = `${byte1}.${byte2}.${i+1}.${j+1}`;
+
+                            // Preguntarmos a etcd si está registrada esa IP
                             match = await this.etcd.get(pruebaIP);
                             if (!match){
                                 IP = pruebaIP + '/' + masc;
@@ -260,19 +265,47 @@ class Servidor{
                             }
                         }
                     }
-                }
-                if (match){
-                    console.log(`No hay IPs disponibles`);
-                }
-                break;
-                
-            default:
-                console.log(`La máscara del segmento de red es erróneo`);
-                break;
-        }
+                    if (match){
+                        console.log(`No hay IPs disponibles`);
+                    }
+                    break;
 
-        console.log(`IP seleccionada: ${IP}`);
-        return IP
+                case '8':
+                    loop1:
+                    for (const i of Array(253).keys()){
+                        for (const j of Array(253).keys()){
+                            for (const k of Array(253).keys()){
+                                console.log(`Probando IP: ${byte1}.${i+1}.${j+1}.${k+1}`);
+                                let pruebaIP = `${byte1}.${i+1}.${j+1}.${k+1}`;
+                                // Preguntarmos a etcd si está registrada esa IP
+                                match = await this.etcd.get(pruebaIP);
+                                if (!match){
+                                    IP = pruebaIP + '/' + masc;
+                                    valor = new Valor(objeto, IP, nodo);
+                                    // Registrar IP y objeto en la base de datos
+                                    await this.etcd.put(pruebaIP).value(JSON.stringify(valor));
+                                    break loop1;
+                                }
+                            }
+                        }
+                    }
+                    if (match){
+                        console.log(`No hay IPs disponibles`);
+                    }
+                    break;
+                    
+                default:
+                    console.log(`La máscara del segmento de red es erróneo`);
+                    break;
+            }
+
+            console.log(`IP seleccionada: ${IP}`);
+            return IP;
+            
+        } catch(err){
+            console.log(err);
+            return err;
+        }
     }
 
     sacaloDeLaLista(lista, objeto){

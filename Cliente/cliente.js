@@ -49,51 +49,60 @@ class Menu{
     }
 
     async acciones(){
-        // Imprimimos el menú de acciones
-        this.imprimirMenu();
+        try{
+            // Imprimimos el menú de acciones
+            this.imprimirMenu();
 
-        // preguntamos al usuario que quiere hacer
-        const opcion = await this.preguntaAlUsuario('Elige una opción: ');
+            // preguntamos al usuario que quiere hacer
+            const opcion = await this.preguntaAlUsuario('Elige una opción: ');
 
-        switch (opcion){
-            case "1":
-                await this.quieroContenedor();
-                break;
-            case "2":
-                await this.quieroEliminarContenedor();
-                break;
-            case "3":
-                await this.mostrarInfoSistema();
-                break;
-            case "4":
-                console.log("Dar de baja al nodo");
-                break;
-            case "5":
-                this.cerrarConsola();
-                break;
-            default:
-                console.log("La opción no corresponde con ninguna disponible");
-                break;
+            switch (opcion){
+                case "1":
+                    await this.quieroContenedor();
+                    break;
+                case "2":
+                    await this.quieroEliminarContenedor();
+                    break;
+                case "3":
+                    await this.mostrarInfoSistema();
+                    break;
+                case "4":
+                    await this.suspenderNodo();
+                    break;
+                case "5":
+                    this.cerrarConsola();
+                    break;
+                default:
+                    console.log("La opción no corresponde con ninguna disponible");
+                    break;
+            }
+
+        } catch(err){
+            console.log(err);
         }
-        
     }
     
     async configurarNodo(){
-        let flag = false;
-        let subred;
-        while(!flag){
-            subred = await this.preguntaAlUsuario('¿Segmento de red donde poner los contenedores?: (p.e. 192.168.111.0/24) ');
-            if (subred.split('.').length === 4 && subred.split('/').length === 2){
-                flag = true;
-            } else{
-                console.log('Segmento de red erróneo, pruebe de nuevo...\n');
+        try{
+            let flag = false;
+            let subred;
+            while(!flag){
+                subred = await this.preguntaAlUsuario('¿Segmento de red donde poner los contenedores?: (p.e. 192.168.111.0/24) ');
+                if (subred.split('.').length === 4 && subred.split('/').length === 2){
+                    flag = true;
+                } else{
+                    console.log('Segmento de red erróneo, pruebe de nuevo...\n');
+                }
             }
-        }
 
-        this.configurameElNodo(subred)
-        console.log(`Esperando a que el deamon configure el nodo`);
-        let respuesta = await this.respuestaDeamon();
-        console.log(`Respuesta del deamon: ${respuesta}`);
+            this.configurameElNodo(subred)
+            console.log(`Esperando a que el deamon configure el nodo`);
+            let respuesta = await this.respuestaDeamon();
+            console.log(`Respuesta del deamon: ${respuesta}`);
+
+        } catch(err){
+            console.log(err);
+        }
     }
 
 
@@ -109,116 +118,143 @@ class Menu{
     }
 
     async pedirInformacionSistema(){
-        console.log("Pidiendo información del clúster al deamon");
-        this.dameInfoSistema();
+        try{
+            console.log("Pidiendo información del clúster al deamon");
+            this.dameInfoSistema();
 
-        console.log("Esperando respuesta...");
+            console.log("Esperando respuesta...");
 
-        let respuesta = await this.respuestaDeamon();
-        let [objetos, nodosActivos] = respuesta.split('\t');
+            let respuesta = await this.respuestaDeamon();
+            let [objetos, nodosActivos] = respuesta.split('\t');
 
-        // Truquito para el string de jsons en objetos
-        objetos = objetos.replaceAll('},{','}|{').split('|');
-        objetos.forEach((objeto,index,array) => {
-            array[index] = JSON.parse(objeto);
-        });
+            // Truquito para el string de jsons en objetos
+            objetos = objetos.replaceAll('},{','}|{').split('|');
+            objetos.forEach((objeto,index,array) => {
+                array[index] = JSON.parse(objeto);
+            });
 
-        // Los nodos activos aparte, pues puede que no tengan contenedores
-        nodosActivos = nodosActivos.split(',');
-        
-        return [objetos, nodosActivos]
+            // Los nodos activos aparte, pues puede que no tengan contenedores
+            nodosActivos = nodosActivos.split(',');
+            
+            return [objetos, nodosActivos];
+
+        } catch(err){
+            console.log(err);
+            return err;
+        }
     }
 
     async mostrarInfoSistema(){
-        let [objetos, nodosActivos] = await this.pedirInformacionSistema();
+        try{
+            let [objetos, nodosActivos] = await this.pedirInformacionSistema();
 
-        // Sacar información en forma de tabla
-        console.log("\nINFORMACION DEL SISTEMA\n");
-        console.table(objetos);
+            // Sacar información en forma de tabla
+            console.log("\nINFORMACION DEL SISTEMA\n");
+            console.table(objetos);
 
-        console.log("\nNODOS ACTIVOS\n");
-        console.table(nodosActivos);
+            console.log("\nNODOS ACTIVOS\n");
+            console.table(nodosActivos);
+
+        } catch(err){
+            console.log(err);
+        }
     }
 
     async quieroEliminarContenedor(){
-        // Pedir información del sistema para mostrar los contenedores
-        let [objetos, _] = await this.pedirInformacionSistema();
+        try{
+            // Pedir información del sistema para mostrar los contenedores
+            let [objetos, _] = await this.pedirInformacionSistema();
 
-        // Filtrar de los objetos solo los contenedores
-        let contenedores = objetos.filter(contenedor => contenedor.nombre !== 'br0');
+            // Filtrar de los objetos solo los contenedores
+            let contenedores = objetos.filter(contenedor => contenedor.nombre !== 'br0');
 
-        // Mostrar contenedores activos
-        console.log("\nCONTENEDORES ACTIVOS\n");
-        console.table(contenedores);
+            // Mostrar contenedores activos
+            console.log("\nCONTENEDORES ACTIVOS\n");
+            console.table(contenedores);
 
-        // Pedir nombre del contenedor que quiere eliminar
-        let nombreCont = await this.preguntaAlUsuario('¿Qué contenedor quiere tumbar? ');
+            // Pedir nombre del contenedor que quiere eliminar
+            let nombreCont = await this.preguntaAlUsuario('¿Qué contenedor quiere tumbar? ');
 
-        // Verificación de que existe
-        let match = contenedores.find(contenedor => contenedor.nombre === nombreCont);
-        if (typeof(match) === 'undefined'){
-            console.log('Ese contenedor no existe');
-            return
+            // Verificación de que existe
+            let match = contenedores.find(contenedor => contenedor.nombre === nombreCont);
+            if (typeof(match) === 'undefined'){
+                console.log('Ese contenedor no existe');
+                return;
+            }
+
+            console.log(`Enviando petición de tumbar el contenedor ${match.nombre} al deamon`);
+            this.eliminaContenedor(match.nombre, match.IP);
+            console.log(`Esperando respuesta del deamon...`);
+            let respuesta = await this.respuestaDeamon();
+            console.log(`Respuesta del deamon: ${respuesta}`);
+        
+        } catch(err){
+            console.log(err);
         }
-
-        console.log(`Enviando petición de tumbar el contenedor ${match.nombre} al deamon`);
-        this.eliminaContenedor(match.nombre, match.IP);
-        console.log(`Esperando respuesta del deamon...`);
-        let respuesta = await this.respuestaDeamon();
-        console.log(`Respuesta del deamon: ${respuesta}`);
 
     }
 
     async quieroContenedor(){
-        // Pedir información de los nodos disponibles
-        let [objetos, nodosActivos] = await this.pedirInformacionSistema();
+        try{
+            // Pedir información de los nodos disponibles
+            let [objetos, nodosActivos] = await this.pedirInformacionSistema();
 
-        // Sacar información en forma de tabla
-        console.log("\nINFORMACION DEL SISTEMA\n");
-        console.table(objetos);
+            // Sacar información en forma de tabla
+            console.log("\nINFORMACION DEL SISTEMA\n");
+            console.table(objetos);
 
-        console.log("\nNODOS ACTIVOS\n");
-        console.table(nodosActivos);
+            console.log("\nNODOS ACTIVOS\n");
+            console.table(nodosActivos);
 
-        // Pedir nodo donde ponerlo
-        let nodo = await this.preguntaAlUsuario('¿En que Nodo? ');
-        
-        // Comprobar que es correcto
-        let verificar = nodosActivos.find(Activo => Activo === nodo);
-        if (typeof(verificar) === 'undefined'){
-            console.log(`Ese nodo no existe`);
-            return
+            // Pedir nodo donde ponerlo
+            let nodo = await this.preguntaAlUsuario('¿En que Nodo? ');
+            
+            // Comprobar que es correcto
+            let verificar = nodosActivos.find(Activo => Activo === nodo);
+            if (typeof(verificar) === 'undefined'){
+                console.log(`Ese nodo no existe`);
+                return;
+            }
+
+
+            // Pedir nombre del contenedor
+            let contenedor = await this.preguntaAlUsuario('¿Nombre del contenedor? ');
+
+            // Comprobar que es correcto
+            verificar = objetos.find(objeto => objeto.nombre === contenedor);
+
+            if (typeof(verificar) !== 'undefined'){
+                console.log(`El nombre de ese contenedor ya existe`);
+                return;
+            }
+
+            console.log(`Enviando petición de nuevo contenedor`);
+            this.levantaContenedor(nodo, contenedor);
+
+            console.log(`Esperando respuesta del deamon...`);
+            let respuesta = await this.respuestaDeamon();
+            console.log(`Respuesta del deamon: ${respuesta}`);
+
+        } catch(err){
+            console.log(err);
         }
-
-
-        // Pedir nombre del contenedor
-        let contenedor = await this.preguntaAlUsuario('¿Nombre del contenedor? ');
-
-        // Comprobar que es correcto
-        verificar = objetos.find(objeto => objeto.nombre === contenedor);
-
-        if (typeof(verificar) !== 'undefined'){
-            console.log(`El nombre de ese contenedor ya existe`);
-            return
-        }
-
-        console.log(`Enviando petición de nuevo contenedor`);
-        this.levantaContenedor(nodo, contenedor);
-
-        console.log(`Esperando respuesta del deamon...`);
-        let respuesta = await this.respuestaDeamon();
-        console.log(`Respuesta del deamon: ${respuesta}`);
     }
 
     async suspenderNodo(){
-        // Enviar al deamon la petición
-        console.log(`Enviando la petición al deamon, esperando respuesta...`);
-        this.darmeDeBaja();
 
-        let respuesta = await this.respuestaDeamon();
-        console.log(`Respuesta del deamon: ${respuesta}`);
+        try{
+            // Enviar al deamon la petición
+            console.log(`Enviando la petición al deamon, esperando respuesta...`);
+            this.darmeDeBaja();
 
-        this.cerrarConsola();
+            let respuesta = await this.respuestaDeamon();
+            console.log(`Respuesta del deamon: ${respuesta}`);
+
+            this.cerrarConsola();
+        
+        } catch(err){
+            console.log(err);
+        }
     }
 
     cerrarConsola(){
