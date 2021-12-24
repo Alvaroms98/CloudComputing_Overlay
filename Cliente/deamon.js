@@ -3,10 +3,8 @@
 // nodos del cluster por medio del servidor, que gestiona la base de datos "etcd"
 
 const zmq = require('zeromq');
-const { exec, spawn } = require('child_process');
+const { exec } = require('child_process');
 const { existsSync } = require('fs');
-const { mkdir } = require('fs/promises');
-const { resolve } = require('path');
 
 
 class Contenedor{
@@ -154,7 +152,11 @@ class Deamon{
             console.log(`Respuesta del servidor: ${respuesta}`);
 
             // for loop para eliminar todos los contenedores
-            for (const contenedor of this.misContenedores){
+
+            // Hacemos una copia de los contenedores para poder iterar sobre ellos,
+            // sino la lista se modifica cada iteración y da problemas
+            const copiaContenedores = this.misContenedores.map(contOriginal => copiaCont);
+            for (const contenedor of copiaContenedores){
                 await this.teTocaTumbarlo(this.miNombre, contenedor.IP, contenedor.nombre);
             }
 
@@ -171,6 +173,29 @@ class Deamon{
         } catch(err){
             console.log(err);
         }
+    }
+
+    async dameMetricas(){
+        try{
+            // Sacar metricas de la CPU
+            let [cpu, stderr] = await this.comandoBash(`top -b -n 1 | grep Cpu | awk '{print $8}'`);
+            // Porcentaje de CPU ocupada
+            cpu = (100 - parseFloat(cpu.replace(',','.').slice(0,-1))).toFixed(1) + '%';
+
+            // Sacar la RAM libre
+            let freeRAM;
+            [freeRAM, stderr] = await this.comandoBash(`free -m | grep "Mem" | awk '{print $4+$6}'`);
+            freeRAM = parseInt(freeRAM.slice(0,-1)) + ' Mb';
+
+            // Enviar info al servidor y esperar respuesta
+            this.tomaMetricas(this.miNombre, cpu, freeRAM);
+            let respuesta = await this.respuestaServidor();
+            console.log(`Respuesta del servidor: ${respuesta}`);
+
+        } catch(err){
+            console.log(err);
+        }
+
     }
 
     // Comprobar si se ha configurado ya cuando la consola ataque al deamon
@@ -464,6 +489,12 @@ class Deamon{
     abandonoElCluster(nodo, IPs){
         const metodo = 'abandonoElCluster';
         const argumentos = nodo + ',' + IPs;
+        this.socketReq.send([metodo, argumentos]);
+    }
+
+    tomaMetricas(nodo, cpu, RAM){
+        const metodo = 'tomaMetricas';
+        const argumentos = nodo + ',' + cpu + ',' + RAM;
         this.socketReq.send([metodo, argumentos]);
     }
 }

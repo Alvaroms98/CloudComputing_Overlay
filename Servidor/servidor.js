@@ -7,9 +7,11 @@ const { Etcd3 } = require('etcd3');
 
 // Clase para que el servidor lleve un registro de los nodos del clúster
 class Nodo{
-    constructor(nombre,IP){
+    constructor(nombre,IP, cpu, RAM){
         this.nombre = nombre;
-        this.IP = IP;        
+        this.IP = IP;
+        this.CPU = cpu;
+        this.freeRAM = RAM;        
     }
 }
 
@@ -32,6 +34,14 @@ class Servidor{
 
         // Cliente etcd
         this.etcd = new Etcd3({hosts:'localhost:2379'});
+
+        // Timer para pedir métricas
+        this.timerMetricas = setInterval(() => {
+            // Solo publicamos la tarea de pedir métricas si hay nodos activos
+            if (this.infoNodos.length > 0){
+                this.pedirMetricas();
+            }
+        }, 10000); // Cada diez segundos
 
         // socket servidor (reply)
         this.socketRep = zmq.socket('rep');
@@ -64,6 +74,23 @@ class Servidor{
         });
     }
 
+    pedirMetricas(){
+        // Publicar tarea para que los deamons me den las métricas
+        this.dameMetricas();
+    }
+
+    tomaMetricas(nodo, cpu, RAM){
+        // Buscar el nodo en la lista y actualizar sus métricas
+        const indice = this.infoNodos.findIndex(elem => elem.nombre === nodo);
+
+        // Cambiar métricas
+        this.infoNodos[indice].CPU = cpu;
+        this.infoNodos[indice].freeRAM = RAM;
+
+        // Responder al deamon
+        this.socketRep.send('Tus métricas están actualizadas en el servidor');
+    }
+
     registrameEnElCluster(nombreNodo, nodoIP){
         const match = this.infoNodos.find(nodo => nodo.IP === nodoIP);
         if (match){
@@ -71,7 +98,7 @@ class Servidor{
             this.socketRep.send('Ya existe un nodo con esa dirección IP en el clúster');
         } else{
             console.log(`Añadiendo al nuevo nodo: ${nombreNodo}`);
-            this.infoNodos.push(new Nodo(nombreNodo, nodoIP));
+            this.infoNodos.push(new Nodo(nombreNodo, nodoIP, '0%', '0 Mb'));
             console.log(this.infoNodos);
 
             // Responder al deamon
@@ -86,13 +113,15 @@ class Servidor{
             const todoObjetos = Object.values(todo);
 
             // ver los nodos dados de alta
-            const nodosActivos = [];
-            for (const nodoActivo of this.infoNodos){
-                nodosActivos.push(nodoActivo.nombre);
-            }
+            const listaNodos = JSON.stringify(this.infoNodos);
+
+            // const nodosActivos = [];
+            // for (const nodoActivo of this.infoNodos){
+            //     nodosActivos.push(nodoActivo.nombre);
+            // }
 
             // Responder al deamon con la información
-            this.socketRep.send(`${todoObjetos}\t${nodosActivos}`);
+            this.socketRep.send(`${todoObjetos}\t${listaNodos}`);
 
         } catch(err){
             console.log(err);
@@ -344,6 +373,12 @@ class Servidor{
         this.socketPub.send(['deamon', metodo, argumentos]);
     }
 
+    dameMetricas(){
+        const metodo = 'dameMetricas';
+        const argumentos = '';
+        this.socketPub.send(['deamon', metodo, argumentos]);
+    }
+
 }
 
 
@@ -356,6 +391,7 @@ const main = () => {
 
     process.on('SIGINT', () => {
         console.log("Apagando servidor...");
+        clearInterval(servidor.timerMetricas);
         servidor.socketPub.close();
         servidor.socketRep.close();
     });

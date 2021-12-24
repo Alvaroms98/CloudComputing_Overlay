@@ -2,8 +2,6 @@
 // de creación y destrucción de contenedores en el cluster de la LAN
 
 // Dependencias
-const { memoryUsage } = require('process');
-const { stringify } = require('querystring');
 const readline = require('readline');
 const zmq = require('zeromq');
 
@@ -124,7 +122,7 @@ class Menu{
 
             let respuesta = await this.respuestaDeamon();
             let [objetos, nodosActivos] = respuesta.split('\t');
-
+            console.log(nodosActivos);
             // Truquito para el string de jsons en objetos
             objetos = objetos.replaceAll('},{','}|{').split('|');
             objetos.forEach((objeto,index,array) => {
@@ -132,7 +130,8 @@ class Menu{
             });
 
             // Los nodos activos aparte, pues puede que no tengan contenedores
-            nodosActivos = nodosActivos.split(',');
+            nodosActivos = JSON.parse(nodosActivos);
+            //nodosActivos = nodosActivos.split(',');
             
             return [objetos, nodosActivos];
 
