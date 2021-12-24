@@ -155,7 +155,7 @@ class Deamon{
 
             // Hacemos una copia de los contenedores para poder iterar sobre ellos,
             // sino la lista se modifica cada iteración y da problemas
-            const copiaContenedores = this.misContenedores.map(contOriginal => copiaCont);
+            const copiaContenedores = this.misContenedores.map(contOriginal => contOriginal);
             for (const contenedor of copiaContenedores){
                 await this.teTocaTumbarlo(this.miNombre, contenedor.IP, contenedor.nombre);
             }
