@@ -145,7 +145,7 @@ class Deamon{
             const contIPs = this.misContenedores.map((cont) => cont.IP);
             let allIPs = this.bridgeIP;
             for (const contIP of contIPs){
-                allIPs += contIP;
+                allIPs += ',' + contIP;
             }
 
             // Enviarle al servidor todas las IPs para que las libere y me de de baja
@@ -245,13 +245,15 @@ class Deamon{
             // Crear y levantar interfaces bridge=br0 y Vxlan=vxlan1
             console.log("Levantando interfaces bridge y VxLAN");
             [stdout, stderr] = await this.comandoBash(`sudo ip link add br0 type bridge`);
-            [stdout, stderr] = await this.comandoBash(`sudo ip link set br0 up`);
+            
 
             let hostIF;
             [hostIF, stderr] = await this.comandoBash(`sudo ip a | grep -m 1 'state UP' | awk '{print $2}'`);
             hostIF = hostIF.slice(0,-2);
-            [stdout, stderr] = await this.comandoBash(`sudo ip link add vxlan1 type vxlan id 42 dstport 4789 group 239.1.1.1 dev ${hostIF} ttl 20`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link add vxlan1 type vxlan id 42 dstport 4789 group 239.1.1.1 local ${this.miIP.split('/')[0]} dev ${hostIF} ttl 20`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link set vxlan1 master br0`);
             [stdout, stderr] = await this.comandoBash(`sudo ip link set vxlan1 up`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip link set br0 up`);
 
 
             console.log("Pidiendo una direccion IP para el bridge al servidor, esperando respuesta...");
