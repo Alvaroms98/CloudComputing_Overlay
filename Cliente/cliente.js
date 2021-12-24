@@ -207,7 +207,7 @@ class Menu{
             let nodo = await this.preguntaAlUsuario('¿En que Nodo? ');
             
             // Comprobar que es correcto
-            let verificar = nodosActivos.find(Activo => Activo === nodo);
+            let verificar = nodosActivos.find(Activo => Activo.nombre === nodo);
             if (typeof(verificar) === 'undefined'){
                 console.log(`Ese nodo no existe`);
                 return;
