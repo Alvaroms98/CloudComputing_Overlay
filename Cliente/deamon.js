@@ -321,6 +321,13 @@ class Deamon{
             // Reglas de enrutamiento
             [stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} r add default via ${this.bridgeIP.split('/')[0]}`);
 
+            // Para que el proxy arp de la interfaz vxlan pueda actuar en nombre de este nuevo contenedor
+            // este contenedor ha de exponerse al menos 1 vez antes de ser localizado por el resto
+            // esto se puede hacer haciendo ping al bridge local para que vxlan1 se guarde la dirección MAC de el veth que hay en
+            // el contenedor
+
+            [stdout, stderr] = await this.comandoBash(`sudo docker exec ${nombreCont} ping -c 1 ${this.bridgeIP.split('/')[0]}`);
+
             // Si todo ha ido bien hasta aqui nos guardamos la info del contenedor
             console.log(`Levantamiento finalizado con éxito, guardamos la info del contenedor`);
             this.misContenedores.push(new Contenedor(nombreCont, IP, pid, `netns_${nombreCont}`, `veth_${nombreCont}`));
