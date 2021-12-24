@@ -195,7 +195,7 @@ class Menu{
         try{
             // Pedir información de los nodos disponibles
             let [objetos, nodosActivos] = await this.pedirInformacionSistema();
-
+            console.log(nodosActivos);
             // Sacar información en forma de tabla
             console.log("\nINFORMACION DEL SISTEMA\n");
             console.table(objetos);
@@ -205,9 +205,10 @@ class Menu{
 
             // Pedir nodo donde ponerlo
             let nodo = await this.preguntaAlUsuario('¿En que Nodo? ');
-            
+            console.log(nodo);
             // Comprobar que es correcto
             let verificar = nodosActivos.find(Activo => Activo.nombre === nodo);
+            console.log(verificar);
             if (typeof(verificar) === 'undefined'){
                 console.log(`Ese nodo no existe`);
                 return;
