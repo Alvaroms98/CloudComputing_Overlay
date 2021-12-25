@@ -26,9 +26,10 @@ class Valor{
 
 
 class Servidor{
-    constructor(puertoRep, puertoPub){
+    constructor(puertoRep, puertoPub, puertoPull){
         this.puertoRep = puertoRep;
         this.puertoPub = puertoPub;
+        this.puertoPull = puertoPull;
 
         this.infoNodos = [];
 
@@ -45,11 +46,11 @@ class Servidor{
 
         // socket servidor (reply)
         this.socketRep = zmq.socket('rep');
-        this.socketRep.bind(`tcp://*:${puertoRep}`, (err) => {
+        this.socketRep.bind(`tcp://*:${this.puertoRep}`, (err) => {
             if (err){
                 console.log(err);
             } else{
-                console.log(`Recibiendo peticiones en el puerto ${puertoRep}`);
+                console.log(`Recibiendo peticiones en el puerto ${this.puertoRep}`);
             }
         });
 
@@ -65,12 +66,32 @@ class Servidor{
 
         // socket publicador
         this.socketPub = zmq.socket('pub');
-        this.socketPub.bind(`tcp://*:${puertoPub}`, (err) => {
+        this.socketPub.bind(`tcp://*:${this.puertoPub}`, (err) => {
             if (err){
                 console.log(err);
             } else{
-                console.log(`Publicando tareas en el puerto ${puertoPub}`);
+                console.log(`Publicando tareas en el puerto ${this.puertoPub}`);
             }
+        });
+
+
+        // socket pull para las métricas
+        this.socketPull = zmq.socket('pull');
+        this.socketPull.bind(`tcp://*:${this.puertoPull}`, (err) => {
+            if (err){
+                console.log(err);
+            } else{
+                console.log(`Recogiendo métricas en el puerto ${this.puertoPull}`);
+            }
+        });
+
+        this.socketPull.on('message', (metodo, argumentos) => {
+            metodo = metodo.toString();
+            argumentos = argumentos.toString().split(',');
+
+            console.log(`Métricas de un deamon -> metodo: ${metodo}, argumentos: ${argumentos}`);
+
+            this[metodo](...argumentos);
         });
     }
 
@@ -87,8 +108,9 @@ class Servidor{
         this.infoNodos[indice].CPU = cpu;
         this.infoNodos[indice].freeRAM = RAM;
 
-        // Responder al deamon
-        this.socketRep.send('Tus métricas están actualizadas en el servidor');
+        // Cambiamos patrón de comunicación a tipo push-pull, no hay que responder
+        //Responder al deamon
+        //this.socketRep.send('Tus métricas están actualizadas en el servidor');
     }
 
     registrameEnElCluster(nombreNodo, nodoIP){
@@ -385,15 +407,17 @@ class Servidor{
 const main = () => {
     const puertoRep = process.argv[2] || 8081;
     const puertoPub = process.argv[3] || 8080;
+    const puertoPull = process.argv[4] || 8082
 
     // Encendemos servidor y nos quedamos a la espera de peticiones
-    const servidor = new Servidor(puertoRep,puertoPub);
+    const servidor = new Servidor(puertoRep,puertoPub,puertoPull);
 
     process.on('SIGINT', () => {
         console.log("Apagando servidor...");
         clearInterval(servidor.timerMetricas);
         servidor.socketPub.close();
         servidor.socketRep.close();
+        servidor.socketPull.close();
     });
 }
 

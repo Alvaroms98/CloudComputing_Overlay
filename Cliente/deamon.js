@@ -18,7 +18,7 @@ class Contenedor{
 }
 
 class Deamon{
-    constructor(miNombre, miIP, servidorIP, LAN, puertoServicio, puertoReq, puertoSub){
+    constructor(miNombre, miIP, servidorIP, LAN, puertoServicio, puertoReq, puertoSub, puertoPush){
         // Variables que conserva el Deamon
         this.miNombre = miNombre;
         this.miIP = miIP;
@@ -27,6 +27,7 @@ class Deamon{
         this.puertoServicio = puertoServicio;
         this.puertoReq = puertoReq;
         this.puertoSub = puertoSub;
+        this.puertoPush = puertoPush;
 
         this.misContenedores = [];
         this.subred = '';
@@ -81,6 +82,10 @@ class Deamon{
                 console.log(err);
             }
         });
+
+        // socket push para enviar las métricas al servidor
+        this.socketPush = zmq.socket('push');
+        this.socketPush.connect(`tcp://${this.servidorIP}:${this.puertoPush}`);
 
     }
 
@@ -187,10 +192,13 @@ class Deamon{
             [freeRAM, stderr] = await this.comandoBash(`free -m | grep "Mem" | awk '{print $4+$6}'`);
             freeRAM = parseInt(freeRAM.slice(0,-1)) + ' Mb';
 
-            // Enviar info al servidor y esperar respuesta
+            // Enviar info al servidor 
             this.tomaMetricas(this.miNombre, cpu, freeRAM);
-            let respuesta = await this.respuestaServidor();
-            console.log(`Respuesta del servidor: ${respuesta}`);
+
+            // Cambiamos comunicación a tipo push-pull, no esperamos respuestas
+
+            //let respuesta = await this.respuestaServidor();
+            //console.log(`Respuesta del servidor: ${respuesta}`);
 
         } catch(err){
             console.log(err);
@@ -495,7 +503,7 @@ class Deamon{
     tomaMetricas(nodo, cpu, RAM){
         const metodo = 'tomaMetricas';
         const argumentos = nodo + ',' + cpu + ',' + RAM;
-        this.socketReq.send([metodo, argumentos]);
+        this.socketPush.send([metodo, argumentos]);
     }
 }
 
@@ -508,6 +516,7 @@ const main = () => {
     const puertoServicio = process.argv[6] || 5002;
     const puertoReq = process.argv[7] || 8081;
     const puertoSub = process.argv[8] || 8080;
+    const puertoPush = process.argv[9] || 8082
 
     const deamon = new Deamon(
                             miNombre,
@@ -516,7 +525,8 @@ const main = () => {
                             LAN,
                             puertoServicio,
                             puertoReq,
-                            puertoSub);
+                            puertoSub,
+                            puertoPush);
                         
     
     deamon.darmeDeAlta(deamon.miNombre, deamon.miIP);
