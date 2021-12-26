@@ -122,7 +122,7 @@ class Menu{
 
             let respuesta = await this.respuestaDeamon();
             let [objetos, nodosActivos] = respuesta.split('\t');
-            console.log(nodosActivos);
+
             // Truquito para el string de jsons en objetos
             objetos = objetos.replaceAll('},{','}|{').split('|');
             objetos.forEach((objeto,index,array) => {
