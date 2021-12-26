@@ -101,16 +101,21 @@ class Servidor{
     }
 
     tomaMetricas(nodo, cpu, RAM){
-        // Buscar el nodo en la lista y actualizar sus métricas
-        const indice = this.infoNodos.findIndex(elem => elem.nombre === nodo);
+        try{
+            // Buscar el nodo en la lista y actualizar sus métricas
+            const indice = this.infoNodos.findIndex(elem => elem.nombre === nodo);
 
-        // Cambiar métricas
-        this.infoNodos[indice].CPU = cpu;
-        this.infoNodos[indice].freeRAM = RAM;
+            // Cambiar métricas
+            this.infoNodos[indice].CPU = cpu;
+            this.infoNodos[indice].freeRAM = RAM;
 
-        // Cambiamos patrón de comunicación a tipo push-pull, no hay que responder
-        //Responder al deamon
-        //this.socketRep.send('Tus métricas están actualizadas en el servidor');
+            // Cambiamos patrón de comunicación a tipo push-pull, no hay que responder
+            //Responder al deamon
+            //this.socketRep.send('Tus métricas están actualizadas en el servidor');
+        } catch(err){
+            console.log(err);
+        }
+
     }
 
     registrameEnElCluster(nombreNodo, nodoIP){
