@@ -266,12 +266,16 @@ class Deamon{
             // Listar todas las reglas de nat
             [stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -S`);
 
+            let hostIF;
+            [hostIF, stderr] = await this.comandoBash(`sudo ip a | grep -m 1 'state UP' | awk '{print $2}'`);
+            hostIF = hostIF.slice(0,-2);
+
             // Separar las reglas por filas y buscar el match
-            let match = stdout.split('\n').find(line => line === `-A POSTROUTING -s ${subred} -j MASQUERADE`);
+            let match = stdout.split('\n').find(line => line === `-A POSTROUTING -s ${subred} -o ${hostIF} -j MASQUERADE`);
             // Si match es indefinido se pone regla, sino nada
             if (typeof(match) === 'undefined'){
                 console.log("Poniendo regla de NAT en iptables");
-                [stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -A POSTROUTING -s ${subred} -j MASQUERADE`);
+                [stdout, stderr] = await this.comandoBash(`sudo iptables -t nat -A POSTROUTING -s ${subred} -o ${hostIF} -j MASQUERADE`);
             }
 
 
@@ -280,9 +284,7 @@ class Deamon{
             [stdout, stderr] = await this.comandoBash(`sudo ip link add br0 type bridge`);
             
 
-            let hostIF;
-            [hostIF, stderr] = await this.comandoBash(`sudo ip a | grep -m 1 'state UP' | awk '{print $2}'`);
-            hostIF = hostIF.slice(0,-2);
+            
             [stdout, stderr] = await this.comandoBash(`sudo ip link add vxlan1 type vxlan id 42 dstport 4789 group 239.1.1.1 local ${this.miIP.split('/')[0]} dev ${hostIF} ttl 20`);
             [stdout, stderr] = await this.comandoBash(`sudo ip link set vxlan1 master br0`);
             [stdout, stderr] = await this.comandoBash(`sudo ip link set vxlan1 up`);
@@ -352,7 +354,7 @@ class Deamon{
             [stdout, stderr] = await this.comandoBash(`sudo ip link set veth_${nombreCont} master br0`);
 
             // Reglas de enrutamiento
-            [stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} r add default via ${this.bridgeIP.split('/')[0]}`);
+            [stdout, stderr] = await this.comandoBash(`sudo ip -n netns_${nombreCont} r add default via ${this.bridgeIP.split('/')[0]} src ${IP.split('/')[0]}`);
 
             // Para que el proxy arp de la interfaz vxlan pueda actuar en nombre de este nuevo contenedor
             // este contenedor ha de exponerse al menos 1 vez antes de ser localizado por el resto

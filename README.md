@@ -157,16 +157,67 @@ Antes de entrar en el detalle de la configuración, cabe destacar que cada uno d
 
 ### 3.2. Esquema general
 
+A continuación, se presenta un esquema orientativo de la configuración de red que se encuentra en cada uno de los nodos, suponiendo que tienen dos contenedores activos:
+
 ![Esquema red](aux/EsquemaOverlay.png)
 
+Todo contenedor tiene su propio *Network Namespace*, en su interior se encuentra uno de los extremos de la interfaz de red virtual *VETH*, a la que se le asocia una dirección IP del segmento de red elegido. El otro extremo de la interfaz *VETH* se encuentra en el *Network Namespace* del host, conectado a una interfaz *bridge*. Por otro lado, desde la interfaz de red física del host (*eth0*), se crea una interfaz *VxLAN*, que también se conecta al *bridge*. Esta configuración es análoga para cada nodo miembro del cluster, una vez se ha configurado.
+
 ### 3.3. Interfaces de red virtuales
+
+Utilizando el paquete [iproute2](https://es.wikipedia.org/wiki/Iproute2) se puede, de manera sencilla, administrar las interfaces de red y conexiones de las que dispone el núcleo de Linux:
+
+* **Virtual ETHernet** (VETH). Es una virtualización de una conexión ethernet local. Se crea a pares, y es usualmente utilizada para comunicar *Network Namespaces*. Comando para crear un par de interfaces *VETH*:
+
+```bash
+ip link add <veth_edge1> type veth peer name <veth_edge2>
+```
+
+* **Linux Bridge**. Es una virtualización de un dispositivo *switch*. Todos los paquetes que le llevan los resparte entre todas las interfaces conectadas a él. Comando para crear un *bridge* y conectarle interfaces:
+
+```bash
+ip link add <name> type bridge
+ip link set <if_name> master <bridge_name>
+```
+
+* **VxLAN**. Es un dispositivo que utiliza el protocolo de tunelización para enmascarar paquetes de nivel 2 sobre paquetes UDP-IP. Para esta aproximación se ha utilizado la virtualización que permite formar un grupo *multicast* para que el descubrimiento de nuevas interfaces entre nodos se haga de forma dinámica. Esto permite que el dispositivo *VxLAN* actúe como ***Proxy ARP***, es decir,que cuando le lleguen paquetes del grupo *multicast* con direcciones IP de las cuales él conozca las direcciones MAC, las pueda responder. Para crear esta interfaz de red virtual, en la configuración que se ha discutido se ha de ejecutar el siguiente comando:
+
+    * **VNI**: Identificador de la red VxLAN
+    * **Group**: Dirección IP para formar el grupo *multicast* por el que se comunicaran los distintos *VTEP* (*VxLAN Tunnel End Point*) pertenecientes a la misma VxLAN, para realizar el descubrimiento dinámico de direcciones MAC.
+
+
+```bash
+ip link add <name> type vxlan id <VNI> dstport <port> group <address> dev <host_if> ttl <number>
+```
 
 
 ### 3.4. Reglas de encaminamiento
 
+Para que los contenedores sean capaces de comunicar con su propio host, y viceversa, es necesario añadir un par de reglas de encaminamiento:
+
+* En el host, al asignarle una dirección IP al *bridge* (dentro del *Network Namespace* del host), este puede utilizar este dispositivo como *gateway* para comunicarse con toda la red *overlay*.
+
+```bash
+<overlay_subnet> dev <bridge_name> proto kernel scope link src <bridge_address>
+```
+
+* Dentro del *Network Namespace* del contenedor.
+
+```bash
+default via <bridge_address> dev eth0 src <cont_address>
+```
 
 ### 3.5. Netfilter con IPTABLES
 
+Para que los contenedores sean capaces de comunicarse con el resto de nodos pertenecientes a la LAN, así como, para establecer comunicación con internet, es necesario el empleo de ***Network Address Translator*** (***NAT***). De igual manera que los *routers* emplean esta técnica para comunicar los dispositivos de una LAN con los de otra LAN (tanto por motivos de seguridad como por escased de IPv4), si se quiere establecer comunicación desde dentro de un contenedor con el exterior del nodo, este último ha de actuar como *router*.
+
+Por tanto, la regla que hay que añadir a la tabla de **NAT** de **IPTABLES** (en la cadena de *POSTROUTING*), es la siguiente:
+
+```bash
+iptables -t nat -A POSTROUTING -s <overlay_subnet> -o <host_if> -j MASQUERADE
+```
+
+Por defecto, **Docker Engine** modifica la política por defecto de la cadena de *FORWARD*
 
 
 <!-- GENERALIZACIÓN -->
