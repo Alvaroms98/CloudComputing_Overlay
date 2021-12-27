@@ -26,7 +26,7 @@ aplicación podrán comunicarse entre ellos como si estuviesen en la misma red d
     4.3. [Eliminar contenedor](#interacciones/eliminar)
 5. [Esquema de conexiones con ZeroMQ](#conexiones)
 6. [Generalización del caso para producción](#generalizacion)
-7. [Tecnologías utilizadas en el proyecto](#tecnologias)
+7. [Tecnologías utilizadas por la aplicación](#tecnologias)
 
 ___
 <!-- COMO USAR -->
@@ -237,25 +237,57 @@ iptables -t filter -P FORWARD ACCEPT
 
 ## 4. Diagramas de interacciones <a name="interacciones"></a>
 
+Para dar una idea al lector de cómo está implementado el código, es decir, cómo se coordinan los *deamons* para llevar a cabo las tareas de la aplicación, en esta sección se presentan los diagramas de interacción más relevantes. Estos diagramas no incluyen todas las acciones, pues no están incluidas las interacciones para la recogida de métricas, o cómo se da de baja un nodo del cluster, pero dan una visión general del funcionamiento de la aplicación. 
+
+Cabe destacar, que la aproximación implementada consiste en un sistema centralizado. El motivo de esta elección es para evitar la complejidad que puede suponer los algoritmos de formación de grupos dinámicos. En esta implementación todas las peticiones son interceptadas por el servidor y redirigidas, dado el caso, al *deamon* correspondiente.
 
 ### 4.1. Preparar nodo <a name="interacciones/preparar"></a>
+El diagrama que se presenta a continuación explica dos interacciones distintas:
+
+1. Configuración del nodo
+2. Cómo un nodo se da de alta en el cluster
+
+La primera interacción comienza desde el arranque de la consola, mientras que la segunda interacción se inicia cuando ejecuta por primera vez el *deamon* del nodo.
 
 ![Interacción: Preparar Nodo](aux/diseñoOverlay_PrepararNodo.png)
 
-
+___
 ### 4.2. Levantar contenedor <a name="interacciones/levantar"></a>
+
+En el siguiente diagrama se recrean las interacciones necesarias para la creación de un nuevo contenedor. Son dos los contactos desde el *deamon* al servidor; el primero es para solicitar información de los nodos activos en el cluster, el segundo contacto es para enviar la petición de levantar el contenedor. Una vez el servidor procesa la información y encuentra una dirección IP libre del segmento de red indicado, publica la tarea a todos los nodos del cluster, y, únicamente el nodo indicado ejecuta la tarea.
 
 ![Interacción: Levantar Contenedor](aux/diseñoOverlay_LevantarContenedor.png)
 
+___
 
 ### 4.3. Eliminar contenedor <a name="interacciones/eliminar"></a>
 
+Para la eliminación de un contenedor se siguen acciones similares al del caso anterior. Dos contactos con el servidor son necesarios; primero una solicitud para conocer el estado de los contenedores en el cluster, es decir, cuántos hay, cómo se denominan y dónde se encuentran. A partir de esta información, el usuario es capaz de seleccionar uno, y, el *deamon* reenvía la petición al servidor. Este último, tras eliminar de la base de datos la existencia del contenedor que se desea eliminar, publica la tarea al cluster para que el nodo que lo contenga lo tumbe.
+
 ![Interacción: Eliminar Contenedor](aux/diseñoOverlay_EliminarContenedor.png)
+___
+
+
 
 
 <!-- DIAGRAMAS DE CONEXIONES -->
 
 ## 5. Esquema de conexiones con ZeroMQ <a name="conexiones"></a>
+
+Para coordinar múltiples procesos en un sistema distribuido hacen falta uno o varios canales de comunicación. En esta aplicación se ha optado por la utilización de la librería de pasos de mensajes de [ZeroMQ](https://zeromq.org/), ya que proporciona varios patrones de comunicación que se ajustan a los requerimientos de la aplicación. 
+
+Los patrones de comunicación que se han utilizado son:
+
+* **Request-Reply**. Este patrón también es conocido como **Cliente-Servidor**. El *socket* **reply** hace de servidor, seleccionando un puerto donde hacer *bind*, quedando a la espera de peticiones. Por otro lado, el *socket* **request** (cliente) se conecta al puerto del servidor para poder enviar peticiones. Cabe destacar, que en ZeroMQ toda petición ha de ser respondida antes de poder antender otras peticiones. Dentro de la aplicación este patrón se utiliza tanto para las peticiones de la consola al *deamon*, como para las peticiones del *deamon* al servidor.
+
+* **Publisher-Subscriber**. En este patrón, el *socket* **publisher** hace *bind* en un puerto, y el/los *sockets* **subscriber** se conectan y se suscriben al tema que quieren recibir (en el caso de la aplicación hay un único tema 'deamon'). Posteriormente, el **publisher** envía mensajes por ese canal, siendo estos mensajes recibidos por todos los **subscribers**. Este par de *sockets* ha sido utilizado para el envío de tareas desde el servidor al resto de nodos del cluster. Las tareas que se publican por este canal son:  
+    * Levantar contenedor
+    * Tumbar contenedor
+    * Solicitud de métricas
+
+* **Push-Pull**. El envío de mensajes de este patrón es similar al de Request-Reply, con la diferencia de que el *socket* que recibe los mensajes (**pull**) no responde al *socket* que los envía (**push**). La inclusión de este patrón en la aplicación ha sido necesario para solventar un potencial error en el envío de las métricas, por parte de los nodos, al servidor. El problema podía darse si coincidia el momento en que el *deamon* esperaba la confirmación del envío de métricas al servidor, con una solicitud de darse de baja del cluster. Luego, la forma de solicionar el problema ha sido añadir este patrón, pues cuando los *deamons* envían las métricas al servidor, no esperan ninguna respuesta del último.  
+
+La siguiente imagen representa un esquema de las conexiones del sistema:
 
 ![Conexiones con ZeroMQ](aux/ConexionesZeroMQ.png)
 
@@ -264,7 +296,38 @@ iptables -t filter -P FORWARD ACCEPT
 
 ## 6. Generalización del caso para producción <a name="generalizacion"></a>
 
+En esta sección se plantean las mejoras necesarias que se deberían implementar para poder llevar la aplicación a producción:
+
+1. **Elección de imagen de los contenedores**. En esta versión del código al usuario no se le permite elegir una imagen Docker con la que crear un nuevo contenedor. Luego, en la rutina de creación de un nuevo contenedor se debería aceptar como argumento de entrada el nombre, o la ruta, de la imagen Docker, y el nodo debería de poder ser capaz de descargarla desde algún [Docker Registry](https://docs.docker.com/registry/) (p.e. [Docker Hub](https://hub.docker.com/)).
+
+2. **Exposición de puertos**. En la misma rutina que se menciona en el caso anterior, se deberían poder aceptar parámetros para que el contenedor haga *bind* a uno o varios puertos del host. Este es el caso típico de cuando un contenedor toma el papel de *front-end* de una aplicación. Para implementar esta mejora se leerían los puertos solicitados por el usuario y se aplicarían reglas de IPTABLES para redirigir el tráfico entrante al host, a un cierto puerto, hacia el contenedor. Además, o bien el *deamon*, o el servidor, tendría que tener constancia de estas reglas para eliminarlas en caso de eliminar el contenedor:
+
+```
+iptables -t nat -A PREROUTING -i <host_if> -p <protocol> --dport <host_port> -j DNAT --to-destination <cont_address>:<cont_port>
+```
+
+3. **Replicación del servidor**. Tanto para tener tolerancia a fallos, como para soportar las múltiples peticiones de los nodos del cluster. Se podría tener múltiples nodos que hagan el papel de servidor, con un balanceador de carga de por medio que repartiera el tráfico hacia estos nodos. Como la aplicación ya utiliza la base de datos **Etcd**, el problema de la consistencia entre servidores no supondría un gran reto. **Etcd** está pensado para ser replicado (también conocido como cluster **Etcd**), pues internamente emplea un protocolo de consistencia fuerte, denominado [Raft](http://thesecretlivesofdata.com/raft/). Por tanto, implementar la replicación del servidor sería automatizar la puesta en marcha de un cluser **Etcd**.
+
+4. **Comprobación del estado de los nodos**. En esta versión de la aplicación, cuando un nodo se muere, sin haberse dado antes de baja del cluster, el servidor no se da cuenta, por tanto, cuando le piden información del sistema, da por hecho de que dicho nodo sigue sano, y con todos los contenedores activos. Habría que incorporar un método que periódicamente comprobara el estado de los nodos, para que en el caso que uno fallara, se actualizará la información del sistema (liberando de la base de datos los objetos que contuviese dicho nodo).
+
+Aplicando estas mejoras al código, es posible que estuviera lista para ser utilizada en producción.
 
 <!-- TECNOLOGIAS EMPLEADAS -->
 
-## 7. Tecnologías utilizadas en el proyecto <a name="tecnologias"></a>
+## 7. Tecnologías utilizadas por la aplicación <a name="tecnologias"></a>
+
+Las tecnologías y herramientas empleadas para la construcción de esta aplicación son:
+
+* [Node.js](https://nodejs.org/en/)
+* API de [ZeroMQ](https://zeromq.org/) para Node.js
+* API de [Etcd](https://github.com/microsoft/etcd3) para Node.js
+* Paquete de configuración de red [iproute2](http://www.policyrouting.org/iproute2.doc.html)
+* [Docker](https://www.docker.com/)
+
+Lenguajes:
+
+* JavaScript
+* Bash
+* Dockerfile
+
+___
