@@ -68,7 +68,7 @@ Este pequeño *script* lanza un contenedor **Docker** con la base de datos **etc
 
 Para poner en marcha el servidor se ejecuta el siguiente comando:
 
-```bash
+```
 node servidor.js [puertoRep] [puertoPub] [puertoPull]
 ```
 
@@ -84,7 +84,7 @@ No se recomienda cambiar el valor de los puertos que expone el servidor, salvo q
 
 Con el servidor en marcha, se ha de dar de alta a los nodos que participarán en el cluster. Dentro de la carpeta `Nodo`, ejecutar:
 
-```bash
+```
 node deamon.js <Nombre Nodo> <IP servidor>
 ```
 
@@ -92,7 +92,7 @@ El programa *deamon.js* contacta con el servidor para darse de alta otorgando su
 
 Una vez el nodo se haya registrado, y el esté *deamon* ejecutándose en el *background*, se puede abrir la consola:
 
-```bash
+```
 node contman.js
 ```
 
@@ -169,13 +169,13 @@ Utilizando el paquete [iproute2](https://es.wikipedia.org/wiki/Iproute2) se pued
 
 * **Virtual ETHernet** (VETH). Es una virtualización de una conexión ethernet local. Se crea a pares, y es usualmente utilizada para comunicar *Network Namespaces*. Comando para crear un par de interfaces *VETH*:
 
-```bash
+```
 ip link add <veth_edge1> type veth peer name <veth_edge2>
 ```
 
 * **Linux Bridge**. Es una virtualización de un dispositivo *switch*. Todos los paquetes que le llevan los resparte entre todas las interfaces conectadas a él. Comando para crear un *bridge* y conectarle interfaces:
 
-```bash
+```
 ip link add <name> type bridge
 ip link set <if_name> master <bridge_name>
 ```
@@ -186,7 +186,7 @@ ip link set <if_name> master <bridge_name>
     * **Group**: Dirección IP para formar el grupo *multicast* por el que se comunicaran los distintos *VTEP* (*VxLAN Tunnel End Point*) pertenecientes a la misma VxLAN, para realizar el descubrimiento dinámico de direcciones MAC.
 
 
-```bash
+```
 ip link add <name> type vxlan id <VNI> dstport <port> group <address> dev <host_if> ttl <number>
 ```
 
@@ -197,13 +197,13 @@ Para que los contenedores sean capaces de comunicar con su propio host, y viceve
 
 * En el host, al asignarle una dirección IP al *bridge* (dentro del *Network Namespace* del host), este puede utilizar este dispositivo como *gateway* para comunicarse con toda la red *overlay*.
 
-```bash
+```
 <overlay_subnet> dev <bridge_name> proto kernel scope link src <bridge_address>
 ```
 
 * Dentro del *Network Namespace* del contenedor.
 
-```bash
+```
 default via <bridge_address> dev eth0 src <cont_address>
 ```
 
@@ -213,11 +213,11 @@ Para que los contenedores sean capaces de comunicarse con el resto de nodos pert
 
 Por tanto, la regla que hay que añadir a la tabla de **NAT** de **IPTABLES** (en la cadena de *POSTROUTING*), es la siguiente:
 
-```bash
+```
 iptables -t nat -A POSTROUTING -s <overlay_subnet> -o <host_if> -j MASQUERADE
 ```
 
-Por defecto, **Docker Engine** modifica la política por defecto de la cadena de *FORWARD*
+Por defecto, **Docker Engine** modifica la política de la cadena de *FORWARD* tomando la acción de *DROP*. Esto hace que el *bridge* que genera esta aplicación no redirija los paquetes que le llevan, por tanto, la solución más trivial (también se podrían poner reglas específicas que permitan la redirección a un cierto segmento de red) es cambiar esta politica a *ACCEPT*
 
 
 <!-- GENERALIZACIÓN -->
