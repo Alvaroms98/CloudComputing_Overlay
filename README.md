@@ -2,7 +2,7 @@
 
 <!-- RESUMEN -->
 Este proyecto consiste en la construcción y configuración de una red overlay
-entre contenedores, sobre un cluster cuyos nodos se encuentran en la misma LAN. Utilizando las interfaces de red virtuales disponibles en el núcleo de Linux, así como el framework **Netfilter**, los contenedores que se lancen a partir de esta
+entre contenedores, sobre un cluster cuyos nodos se encuentran en la misma LAN. Utilizando las interfaces de red virtuales disponibles en el núcleo de Linux, así como el framework [Netfilter](https://www.netfilter.org/), los contenedores que se lancen a partir de esta
 aplicación podrán comunicarse entre ellos como si estuviesen en la misma red de nivel 2.
 
 
@@ -14,7 +14,12 @@ aplicación podrán comunicarse entre ellos como si estuviesen en la misma red d
     1.2. [Instalación](#instrucciones/instalacion)  
     1.3. [Despliegue](#instrucciones/despliegue)  
 2. [Cómo usar la Consola](#consola)
-3. [Configuración de red](#red)
+3. [Configuración de red](#red)  
+    3.1. [Alcance de los contenedores](#red/alcance)  
+    3.2. [Esquema general](#red/esquema)  
+    3.3. [Interfaces de red virtuales](#red/interfaces)  
+    3.4. [Reglas de encaminamiento](#red/reglas)  
+    3.5. [Netfilter con IPTABLES](#red/iptables)
 4. [Generalización del despliegue](#generalizacion)
 5. [Implementación con Node.js](#implementacion)
 6. [Diagrama de conexiones con ZeroMQ](#conexiones)
@@ -90,7 +95,7 @@ node deamon.js <Nombre Nodo> <IP servidor>
 
 El programa *deamon.js* contacta con el servidor para darse de alta otorgando su nombre y su dirección IP (internamente el programa extrae la dirección IP del nodo). Si el nodo ya está registrado por el servidor (se comprueba la IP del nodo), este lo expulsará.
 
-Una vez el nodo se haya registrado, y el esté *deamon* ejecutándose en el *background*, se puede abrir la consola:
+Una vez el nodo se haya registrado, y esté *deamon* ejecutándose en el *background*, se puede abrir la consola:
 
 ```
 node contman.js
@@ -98,7 +103,7 @@ node contman.js
 
 El programa *contman.js* o **consola** es la API del cluster. Se trata de un menú interfaz por terminal que permite la gestión de los contenedores del cluster. La primera vez que se acceda a la consola, se pondrá en contacto con el *deamon* del nodo para configurarlo. Se le pedirá al usuario el segmento de red en el que se situarán los contenedores que se levanten en ese nodo.
 
-Una vez se tiene el nodo configurado, se puede navegar por las diferentes opciones del menú. Además, se puede abrir y cerrar la consola a voluntad, para hacer las configuraciones necesarias, ya que es solamente una interfaz, no tiene estado. En la [Sección 2](#consola) se encuentra una explicación detallada del uso de la consola.
+Una vez se tiene el nodo configurado, se puede navegar por las diferentes opciones del menú. Además, se puede abrir y cerrar la consola a voluntad para hacer las configuraciones necesarias, ya que es solamente una interfaz, no tiene estado. En la [Sección 2](#consola) se encuentra una explicación detallada del uso de la consola.
 
 Es necesario repetir los pasos de este [apartado](#apartadoNodo) por cada nodo que se quiera dar de alta en el cluster.
 
@@ -143,7 +148,7 @@ Explicación de cada una de las opciones:
 
 ## 3. Configuración de red <a name="red"></a>
 
-### 3.1. Alcance de los contenedores
+### 3.1. Alcance de los contenedores <a name="red/alcance"></a>
 
 En esta sección se explica cómo el programa implementa la configuración de red de los contenedores para que sean capaces de comunicarse entre ellos como si estuviesen en el mismo segmento de red a nivel 2, sobre una comunicación física a nivel 3.
 
@@ -155,15 +160,15 @@ Antes de entrar en el detalle de la configuración, cabe destacar que cada uno d
 * Cualquier otro contenedor del cluster que se encuentre en un nodo distinto al propio.
 * Con internet (si es que el nodo en el que se encuentra puede hacerlo).
 
-### 3.2. Esquema general
+### 3.2. Esquema general <a name="red/esquema"></a>
 
 A continuación, se presenta un esquema orientativo de la configuración de red que se encuentra en cada uno de los nodos, suponiendo que tienen dos contenedores activos:
 
 ![Esquema red](aux/EsquemaOverlay.png)
 
-Todo contenedor tiene su propio *Network Namespace*, en su interior se encuentra uno de los extremos de la interfaz de red virtual *VETH*, a la que se le asocia una dirección IP del segmento de red elegido. El otro extremo de la interfaz *VETH* se encuentra en el *Network Namespace* del host, conectado a una interfaz *bridge*. Por otro lado, desde la interfaz de red física del host (*eth0*), se crea una interfaz *VxLAN*, que también se conecta al *bridge*. Esta configuración es análoga para cada nodo miembro del cluster, una vez se ha configurado.
+Todo contenedor se sitúa dentro de un *Network Namespace*, en su interior se encuentra uno de los extremos de la interfaz de red virtual *VETH*, a la que se le asocia una dirección IP del segmento de red elegido. El otro extremo de la interfaz *VETH* se encuentra en el *Network Namespace* del host, conectado a una interfaz *bridge*. Por otro lado, desde la interfaz de red física del host (*eth0*), se crea una interfaz *VxLAN*, que también se conecta al *bridge*. Esta configuración es análoga para cada nodo miembro del cluster, una vez se ha configurado.
 
-### 3.3. Interfaces de red virtuales
+### 3.3. Interfaces de red virtuales <a name="red/interfaces"></a>
 
 Utilizando el paquete [iproute2](https://es.wikipedia.org/wiki/Iproute2) se puede, de manera sencilla, administrar las interfaces de red y conexiones de las que dispone el núcleo de Linux:
 
@@ -173,7 +178,7 @@ Utilizando el paquete [iproute2](https://es.wikipedia.org/wiki/Iproute2) se pued
 ip link add <veth_edge1> type veth peer name <veth_edge2>
 ```
 
-* **Linux Bridge**. Es una virtualización de un dispositivo *switch*. Todos los paquetes que le llevan los resparte entre todas las interfaces conectadas a él. Comando para crear un *bridge* y conectarle interfaces:
+* **Linux Bridge**. Es una virtualización de un dispositivo *switch*. Todos los paquetes que le llegan los resparte entre todas las interfaces conectadas a él. Comando para crear un *bridge* y conectarle interfaces:
 
 ```
 ip link add <name> type bridge
@@ -191,7 +196,7 @@ ip link add <name> type vxlan id <VNI> dstport <port> group <address> dev <host_
 ```
 
 
-### 3.4. Reglas de encaminamiento
+### 3.4. Reglas de encaminamiento <a name="red/reglas"></a>
 
 Para que los contenedores sean capaces de comunicar con su propio host, y viceversa, es necesario añadir un par de reglas de encaminamiento:
 
@@ -207,7 +212,7 @@ Para que los contenedores sean capaces de comunicar con su propio host, y viceve
 default via <bridge_address> dev eth0 src <cont_address>
 ```
 
-### 3.5. Netfilter con IPTABLES
+### 3.5. Netfilter con IPTABLES <a name="red/iptables"></a>
 
 Para que los contenedores sean capaces de comunicarse con el resto de nodos pertenecientes a la LAN, así como, para establecer comunicación con internet, es necesario el empleo de ***Network Address Translator*** (***NAT***). De igual manera que los *routers* emplean esta técnica para comunicar los dispositivos de una LAN con los de otra LAN (tanto por motivos de seguridad como por escased de IPv4), si se quiere establecer comunicación desde dentro de un contenedor con el exterior del nodo, este último ha de actuar como *router*.
 
@@ -217,7 +222,11 @@ Por tanto, la regla que hay que añadir a la tabla de **NAT** de **IPTABLES** (e
 iptables -t nat -A POSTROUTING -s <overlay_subnet> -o <host_if> -j MASQUERADE
 ```
 
-Por defecto, **Docker Engine** modifica la política de la cadena de *FORWARD* tomando la acción de *DROP*. Esto hace que el *bridge* que genera esta aplicación no redirija los paquetes que le llevan, por tanto, la solución más trivial (también se podrían poner reglas específicas que permitan la redirección a un cierto segmento de red) es cambiar esta politica a *ACCEPT*
+Por defecto, **Docker Engine** modifica la política de la cadena de *FORWARD* tomando la acción de *DROP*. Esto provoca que ninguna interfaz de red que se encuentre en el *Network Namespace* del host sea capaz de redirigir paquetes. La solución más trivial es cambiar esta politica a *ACCEPT* (también se podrían poner reglas específicas que permitan la redirección a un cierto segmento de red):
+
+```
+iptables -t filter -P FORWARD ACCEPT
+```
 
 
 <!-- GENERALIZACIÓN -->
