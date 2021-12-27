@@ -20,9 +20,13 @@ aplicación podrán comunicarse entre ellos como si estuviesen en la misma red d
     3.3. [Interfaces de red virtuales](#red/interfaces)  
     3.4. [Reglas de encaminamiento](#red/reglas)  
     3.5. [Netfilter con IPTABLES](#red/iptables)
-4. [Generalización del despliegue](#generalizacion)
-5. [Implementación con Node.js](#implementacion)
-6. [Diagrama de conexiones con ZeroMQ](#conexiones)
+4. [Diagramas de interacciones](#interacciones)  
+    4.1. [Preparar nodo](#interacciones/preparar)  
+    4.2. [Levantar contenedor](#interacciones/levantar)  
+    4.3. [Eliminar contenedor](#interacciones/eliminar)
+5. [Esquema de conexiones con ZeroMQ](#conexiones)
+6. [Generalización del caso para producción](#generalizacion)
+7. [Tecnologías utilizadas en el proyecto](#tecnologias)
 
 ___
 <!-- COMO USAR -->
@@ -229,14 +233,38 @@ iptables -t filter -P FORWARD ACCEPT
 ```
 
 
-<!-- GENERALIZACIÓN -->
+<!-- DIAGRAMAS DE INTERACCIONES -->
 
-## Generalización del despliegue <a name="generalizacion"></a>
+## 4. Diagramas de interacciones <a name="interacciones"></a>
 
-<!-- DIAGRAMAS DE FLUJO -->
 
-## Implementación con Node.js <a name="implementacion"></a>
+### 4.1. Preparar nodo <a name="interacciones/preparar"></a>
+
+![Interacción: Preparar Nodo](aux/diseñoOverlay_PrepararNodo.png)
+
+
+### 4.2. Levantar contenedor <a name="interacciones/levantar"></a>
+
+![Interacción: Levantar Contenedor](aux/diseñoOverlay_LevantarContenedor.png)
+
+
+### 4.3. Eliminar contenedor <a name="interacciones/eliminar"></a>
+
+![Interacción: Eliminar Contenedor](aux/diseñoOverlay_EliminarContenedor.png)
+
 
 <!-- DIAGRAMAS DE CONEXIONES -->
 
-## Diagrama de conexiones con ZeroMQ<a name="conexiones"></a>
+## 5. Esquema de conexiones con ZeroMQ <a name="conexiones"></a>
+
+![Conexiones con ZeroMQ](aux/ConexionesZeroMQ.png)
+
+
+<!-- GENERALIZACIONES PARA PRODUCCIÓN -->
+
+## 6. Generalización del caso para producción <a name="generalizacion"></a>
+
+
+<!-- TECNOLOGIAS EMPLEADAS -->
+
+## 7. Tecnologías utilizadas en el proyecto <a name="tecnologias"></a>
