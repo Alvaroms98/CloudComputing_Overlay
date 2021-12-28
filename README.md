@@ -99,7 +99,7 @@ node deamon.js <Nombre Nodo> <IP servidor>
 
 El programa *deamon.js* contacta con el servidor para darse de alta otorgando su nombre y su dirección IP (internamente el programa extrae la dirección IP del nodo). Si el nodo ya está registrado por el servidor (se comprueba la IP del nodo), este lo expulsará.
 
-Una vez el nodo se haya registrado, y esté *deamon* ejecutándose en el *background*, se puede abrir la consola:
+Una vez el nodo se haya registrado, y el *deamon* esté ejecutándose en el *background*, se puede abrir la consola:
 
 ```
 node contman.js
@@ -109,9 +109,9 @@ El programa *contman.js* o **consola** es la API del cluster. Se trata de un men
 
 Una vez se tiene el nodo configurado, se puede navegar por las diferentes opciones del menú. Además, se puede abrir y cerrar la consola a voluntad para hacer las configuraciones necesarias, ya que es solamente una interfaz, no tiene estado. En la [Sección 2](#consola) se encuentra una explicación detallada del uso de la consola.
 
-Es necesario repetir los pasos de este [apartado](#apartadoNodo) por cada nodo que se quiera dar de alta en el cluster.
+Es necesario repetir los pasos de este apartado por cada nodo que se quiera dar de alta en el cluster.
 
-Si has seguido los pasos de la instalación hasta este punto, ya tienes todo listo para hacer uso de la aplicación, enhorabuena!
+Si has seguido los pasos de la instalación hasta este punto, ya tienes todo listo para hacer uso de la aplicación.
 
 
 <!-- COMO USAR LA CONSOLA -->
@@ -134,7 +134,7 @@ Explicación de cada una de las opciones:
 
 1. **Levantar Contenedor**. Se presenta al usuario una tabla con los nombres de los objetos (contenedores o *bridges* virtuales) que tienen asociada una dirección IP de la red *overlay*, así como el nombre del nodo en donde se encuentran. A patir de esta información se le pedirá al usuario que elija el nodo y el nombre del contenedor que se quiere levantar.
 
-2. **Destruir Contenedor**. Se presenta al usuario una tabla con los nombres de los contenedores activos en el cluster (similar al caso anterior). El usuario debe escribir el nombre del contenedor que se quiere tumbar.
+2. **Destruir Contenedor**. Se presenta al usuario una tabla con los nombres de los contenedores activos en el cluster (similar al caso anterior). El usuario debe escribir el nombre del contenedor que se quiere eliminar.
 
 3. **Información del sistema**. Se proporciona al usuario información en tiempo real de los contenedores activos en el cluster, su dirección IP y el nodo en el que se encuentran. Además, se muestra en una tabla separada los nodos que están dados de alta (es posible que no tengan asociado ningún contenedor), así como las métricas más relevantes (CPU y RAM) para que el usuario pueda hacerse una idea del grado de ocupación de un nodo, y, eligir de manera óptima dónde desplegar el siguiente contenedor. Las métricas de los nodos se actualizan cada 10 segundos.
 
@@ -154,7 +154,7 @@ Explicación de cada una de las opciones:
 
 ### 3.1. Alcance de los contenedores <a name="red/alcance"></a>
 
-En esta sección se explica cómo el programa implementa la configuración de red de los contenedores para que sean capaces de comunicarse entre ellos como si estuviesen en el mismo segmento de red a nivel 2, sobre una comunicación física a nivel 3.
+En esta sección se explica cómo el programa implementa la configuración de red de los contenedores para que sean capaces de comunicarse entre ellos como si estuviesen en el mismo segmento de red a nivel 2, sobre una comunicación a nivel 3.
 
 Antes de entrar en el detalle de la configuración, cabe destacar que cada uno de los contenedores es capaz de establecer comunicación con:
 
@@ -170,11 +170,11 @@ A continuación, se presenta un esquema orientativo de la configuración de red 
 
 ![Esquema red](aux/EsquemaOverlay.png)
 
-Todo contenedor se sitúa dentro de un *Network Namespace*, en su interior se encuentra uno de los extremos de la interfaz de red virtual *VETH*, a la que se le asocia una dirección IP del segmento de red elegido. El otro extremo de la interfaz *VETH* se encuentra en el *Network Namespace* del host, conectado a una interfaz *bridge*. Por otro lado, desde la interfaz de red física del host (*eth0*), se crea una interfaz *VxLAN*, que también se conecta al *bridge*. Esta configuración es análoga para cada nodo miembro del cluster, una vez se ha configurado.
+Todo contenedor se sitúa dentro de un *Network Namespace*, en su interior se encuentra uno de los extremos de una interfaz de red virtual *VETH*, a la que se le asocia una dirección IP del segmento de red elegido. El otro extremo de la interfaz *VETH* se encuentra en el *Network Namespace* del host, conectada a una interfaz *bridge*. Por otro lado, desde la interfaz de red física del host, *eth0*, se crea una interfaz *VxLAN*, que también se conecta al *bridge*. Esta configuración es análoga para cada nodo miembro del cluster, una vez se ha configurado.
 
 ### 3.3. Interfaces de red virtuales <a name="red/interfaces"></a>
 
-Utilizando el paquete [iproute2](https://es.wikipedia.org/wiki/Iproute2) se puede, de manera sencilla, administrar las interfaces de red y conexiones de las que dispone el núcleo de Linux:
+Utilizando el paquete [iproute2](https://wiki.linuxfoundation.org/networking/iproute2) se puede, de manera sencilla, administrar las interfaces de red y conexiones de las que dispone el núcleo de Linux:
 
 * **Virtual ETHernet** (VETH). Es una virtualización de una conexión ethernet local. Se crea a pares, y es usualmente utilizada para comunicar *Network Namespaces*. Comando para crear un par de interfaces *VETH*:
 
@@ -189,7 +189,7 @@ ip link add <name> type bridge
 ip link set <if_name> master <bridge_name>
 ```
 
-* **VxLAN**. Es un dispositivo que utiliza el protocolo de tunelización para enmascarar paquetes de nivel 2 sobre paquetes UDP-IP. Para esta aproximación se ha utilizado la virtualización que permite formar un grupo *multicast* para que el descubrimiento de nuevas interfaces entre nodos se haga de forma dinámica. Esto permite que el dispositivo *VxLAN* actúe como ***Proxy ARP***, es decir,que cuando le lleguen paquetes del grupo *multicast* con direcciones IP de las cuales él conozca las direcciones MAC, las pueda responder. Para crear esta interfaz de red virtual, en la configuración que se ha discutido se ha de ejecutar el siguiente comando:
+* **VxLAN**. Es un dispositivo que utiliza el protocolo de tunelización para enmascarar paquetes de nivel 2 sobre paquetes UDP-IP. Para esta aproximación se ha utilizado la virtualización que permite formar un grupo *multicast* para que el descubrimiento de nuevas interfaces entre nodos se haga de forma dinámica. Esto permite que el dispositivo *VxLAN* vaya generando su propia tabla caché [ARP](https://web.archive.org/web/19970620095137/https://erg.abdn.ac.uk/users/gorry/course/inet-pages/arp.html), donde irá registrando las direcciones MAC de los contenedores que se vayan creando en el cluster. Para crear esta interfaz de red virtual, con la configuración que se ha discutido, se ha de ejecutar el siguiente comando:
 
     * **VNI**: Identificador de la red VxLAN
     * **Group**: Dirección IP para formar el grupo *multicast* por el que se comunicaran los distintos *VTEP* (*VxLAN Tunnel End Point*) pertenecientes a la misma VxLAN, para realizar el descubrimiento dinámico de direcciones MAC.
@@ -218,7 +218,7 @@ default via <bridge_address> dev eth0 src <cont_address>
 
 ### 3.5. Netfilter con IPTABLES <a name="red/iptables"></a>
 
-Para que los contenedores sean capaces de comunicarse con el resto de nodos pertenecientes a la LAN, así como, para establecer comunicación con internet, es necesario el empleo de ***Network Address Translator*** (***NAT***). De igual manera que los *routers* emplean esta técnica para comunicar los dispositivos de una LAN con los de otra LAN (tanto por motivos de seguridad como por escased de IPv4), si se quiere establecer comunicación desde dentro de un contenedor con el exterior del nodo, este último ha de actuar como *router*.
+Para que los contenedores sean capaces de comunicarse con el resto de nodos pertenecientes a la LAN, así como, para establecer comunicación con internet, es necesario el empleo de [Network Address Translation (NAT)](https://www.cisco.com/c/en/us/support/docs/ip/network-address-translation-nat/26704-nat-faq-00.html). De igual manera que los *routers* emplean esta técnica para comunicar los dispositivos de una LAN con los de otra LAN (tanto por motivos de seguridad, como por escased de IPv4), si se quiere establecer comunicación desde dentro de un contenedor con el exterior del nodo, este último ha de actuar como *router*.
 
 Por tanto, la regla que hay que añadir a la tabla de **NAT** de **IPTABLES** (en la cadena de *POSTROUTING*), es la siguiente:
 
@@ -226,7 +226,7 @@ Por tanto, la regla que hay que añadir a la tabla de **NAT** de **IPTABLES** (e
 iptables -t nat -A POSTROUTING -s <overlay_subnet> -o <host_if> -j MASQUERADE
 ```
 
-Por defecto, **Docker Engine** modifica la política de la cadena de *FORWARD* tomando la acción de *DROP*. Esto provoca que ninguna interfaz de red que se encuentre en el *Network Namespace* del host sea capaz de redirigir paquetes. La solución más trivial es cambiar esta politica a *ACCEPT* (también se podrían poner reglas específicas que permitan la redirección a un cierto segmento de red):
+Por defecto, Docker Engine modifica la política de la cadena de *FORWARD* tomando la acción de *DROP*. Esto provoca que ninguna interfaz de red que se encuentre en el *Network Namespace* del host sea capaz de redirigir paquetes. La solución más trivial es cambiar esta politica a *ACCEPT* (también se podrían poner reglas específicas que permitan la redirección a un segmento de red específico):
 
 ```
 iptables -t filter -P FORWARD ACCEPT
@@ -254,7 +254,7 @@ La primera interacción comienza desde el arranque de la consola, mientras que l
 ___
 ### 4.2. Levantar contenedor <a name="interacciones/levantar"></a>
 
-En el siguiente diagrama se recrean las interacciones necesarias para la creación de un nuevo contenedor. Son dos los contactos desde el *deamon* al servidor; el primero es para solicitar información de los nodos activos en el cluster, el segundo contacto es para enviar la petición de levantar el contenedor. Una vez el servidor procesa la información y encuentra una dirección IP libre del segmento de red indicado, publica la tarea a todos los nodos del cluster, y, únicamente el nodo indicado ejecuta la tarea.
+En el siguiente diagrama se recrean las interacciones necesarias para la creación de un nuevo contenedor. Son dos los contactos desde el *deamon* al servidor; el primero es para solicitar información de los nodos activos en el cluster, el segundo contacto es para enviar la petición de levantar el contenedor. Una vez el servidor procesa la información y encuentra una dirección IP libre del segmento de red indicado, publica la tarea a todos los nodos del cluster, y, únicamente ejecuta la tarea el nodo al que le corresponde.
 
 ![Interacción: Levantar Contenedor](aux/diseñoOverlay_LevantarContenedor.png)
 
@@ -308,11 +308,11 @@ En esta sección se plantean las mejoras necesarias que se deberían implementar
 iptables -t nat -A PREROUTING -i <host_if> -p <protocol> --dport <host_port> -j DNAT --to-destination <cont_address>:<cont_port>
 ```
 
-3. **Replicación del servidor**. Tanto para tener tolerancia a fallos, como para soportar las múltiples peticiones de los nodos del cluster. Se podría tener múltiples nodos que hagan el papel de servidor, con un balanceador de carga de por medio que repartiera el tráfico hacia estos nodos. Como la aplicación ya utiliza la base de datos **Etcd**, el problema de la consistencia entre servidores no supondría un gran reto. **Etcd** está pensado para ser replicado (también conocido como cluster **Etcd**), pues internamente emplea un protocolo de consistencia fuerte, denominado [Raft](http://thesecretlivesofdata.com/raft/). Por tanto, implementar la replicación del servidor sería automatizar la puesta en marcha de un cluser **Etcd**.
+3. **Replicación del servidor**. Tanto para tener tolerancia a fallos, como para soportar las múltiples peticiones de los nodos del cluster. Se podría tener múltiples nodos que hagan el papel de servidor, con un balanceador de carga de por medio que repartiera el tráfico hacia estos nodos. Como la aplicación ya utiliza la base de datos Etcd, el problema de la consistencia entre servidores no supondría un gran reto. Etcd está pensado para ser replicado (también conocido como *cluster Etcd*), pues internamente emplea un protocolo de consistencia fuerte, denominado [Raft](http://thesecretlivesofdata.com/raft/). Por tanto, implementar la replicación del servidor sería automatizar la puesta en marcha de un cluser Etcd.
 
 4. **Comprobación del estado de los nodos**. En esta versión de la aplicación, cuando un nodo se muere, sin haberse dado antes de baja del cluster, el servidor no se da cuenta, por tanto, cuando le piden información del sistema, da por hecho de que dicho nodo sigue sano, y con todos los contenedores activos. Habría que incorporar un método que periódicamente comprobara el estado de los nodos, para que en el caso que uno fallara, se actualizará la información del sistema (liberando de la base de datos los objetos que contuviese dicho nodo).
 
-Aplicando estas mejoras al código, es posible que estuviera lista para ser utilizada en producción.
+Aplicando estas mejoras al código, es posible que la aplicación estuviera lista para ser utilizada en producción.
 
 <!-- TECNOLOGIAS EMPLEADAS -->
 
