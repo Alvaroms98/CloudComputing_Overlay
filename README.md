@@ -1,7 +1,7 @@
 # Construcción de una red Overlay
 
 <!-- RESUMEN -->
-Este proyecto consiste en la construcción y configuración de una red overlay
+Este proyecto consiste en la construcción y configuración de una red *overlay*
 entre contenedores, sobre un cluster cuyos nodos se encuentran en la misma LAN. Utilizando las interfaces de red virtuales disponibles en el núcleo de Linux, así como el framework [Netfilter](https://www.netfilter.org/), los contenedores que se lancen a partir de esta
 aplicación podrán comunicarse entre ellos como si estuviesen en la misma red de nivel 2.
 
@@ -37,7 +37,7 @@ ___
 
 ### 1.1. Pre-requisitos <a name="instrucciones/pre-requisitos"></a>
 
-Este *software* está pensando para ser ejecutado sobre un sistema operativo Linux. Además, es necesario tener instaladas las siguientes aplicaciones:
+Este *software* está pensando para ser ejecutado sobre un sistema operativo [Linux](https://www.linux.org/). Además, es necesario tener instaladas las siguientes aplicaciones:
 
 * [Docker Engine](https://docs.docker.com/engine/install/)
 * [Docker CLI](https://docs.docker.com/engine/reference/commandline/cli/)
@@ -48,7 +48,7 @@ Este *software* está pensando para ser ejecutado sobre un sistema operativo Lin
 
 <!-- Poner una casilla para clonar el repositorio -->
 
-Una vez clonado el repositorio en alguno de los nodos del cluster, hay que instalar las dependencias del código de **Node.js**. Ejecuta los siguiente comandos en la terminal:
+Una vez clonado el repositorio en alguno de los nodos del cluster, hay que instalar las dependencias del código de **Node.js**. Dentro del repositorio, ejecuta los siguiente comandos en la terminal:
 
 ```bash
 cd Servidor/
@@ -68,12 +68,12 @@ en un único nodo.
 
 #### Servidor
 
-Una vez elegido cual de los nodos va actuar como servidor, hay que ponerlo en marcha. Lo primero es levantar un contenedor con **etcd**, que es una base de datos *clave-valor* de la que va a hacer uso el servidor para la gestión de las direcciones IP de los contenedores. Dentro de la carpeta `Servidor`, ejecutar:
+Una vez elegido cual de los nodos va actuar como servidor, hay que ponerlo en marcha. Lo primero es levantar un contenedor con [Etcd](https://etcd.io/), que es una base de datos *clave-valor* de la que va a hacer uso el servidor para la gestión de las direcciones IP de los contenedores. Dentro de la carpeta `Servidor`, ejecutar:
 
 ```bash
 ./etcdServer_launcher.sh
 ```
-Este pequeño *script* lanza un contenedor **Docker** con la base de datos **etcd**, exponiendo el puerto 2379, que es el que por defecto se utiliza para acceder a su API.
+Este pequeño *script* lanza un contenedor Docker con la base de datos Etcd, exponiendo el puerto 2379, que es el que por defecto se utiliza para comunicar con su API.
 
 Para poner en marcha el servidor se ejecuta el siguiente comando:
 
@@ -285,6 +285,8 @@ Los patrones de comunicación que se han utilizado son:
     * Tumbar contenedor
     * Solicitud de métricas
 
+<br>
+
 * **Push-Pull**. El envío de mensajes de este patrón es similar al de Request-Reply, con la diferencia de que el *socket* que recibe los mensajes (**pull**) no responde al *socket* que los envía (**push**). La inclusión de este patrón en la aplicación ha sido necesario para solventar un potencial error en el envío de las métricas, por parte de los nodos, al servidor. El problema podía darse si coincidia el momento en que el *deamon* esperaba la confirmación del envío de métricas al servidor, con una solicitud de darse de baja del cluster. Luego, la forma de solicionar el problema ha sido añadir este patrón, pues cuando los *deamons* envían las métricas al servidor, no esperan ninguna respuesta del último.  
 
 La siguiente imagen representa un esquema de las conexiones del sistema:
@@ -319,15 +321,15 @@ Aplicando estas mejoras al código, es posible que estuviera lista para ser util
 Las tecnologías y herramientas empleadas para la construcción de esta aplicación son:
 
 * [Node.js](https://nodejs.org/en/)
-* API de [ZeroMQ](https://zeromq.org/) para Node.js
-* API de [Etcd](https://github.com/microsoft/etcd3) para Node.js
-* Paquete de configuración de red [iproute2](http://www.policyrouting.org/iproute2.doc.html)
+* [API de ZeroMQ para Node.js](https://zeromq.github.io/zeromq.js/)
+* [API de Etcd para Node.js](https://github.com/microsoft/etcd3)
+* Paquete de configuración de red [iproute2](https://wiki.linuxfoundation.org/networking/iproute2)
 * [Docker](https://www.docker.com/)
 
 Lenguajes:
 
-* JavaScript
-* Bash
-* Dockerfile
+* [JavaScript](https://www.javascript.com/)
+* [Bash](https://www.gnu.org/software/bash/)
+* [Dockerfile](https://docs.docker.com/engine/reference/builder/)
 
 ___
